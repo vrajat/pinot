@@ -22,7 +22,7 @@
   "instanceAssignmentConfigMap": {
     "CONSUMING": {
       "tagPoolConfig": {
-        "tag": "DefaultTenant_REALTIME"
+        "tag": "restream_REALTIME"
       },
       "replicaGroupPartitionConfig": {
         "replicaGroupBased": true,
@@ -72,8 +72,8 @@
     }
   ],
   "tenants": {
-    "broker": "DefaultTenant",
-    "server": "DefaultTenant"
+    "broker": "restream",
+    "server": "restream"
   },
   "metadata": {
     "customConfigs": {}

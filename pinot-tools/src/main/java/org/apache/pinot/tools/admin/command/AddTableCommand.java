@@ -187,6 +187,11 @@ public class AddTableCommand extends AbstractBaseAdminCommand implements Command
     return this;
   }
 
+  public AddTableCommand setUpdate(boolean update) {
+    _update = update;
+    return this;
+  }
+
   public AddTableCommand setAuthProvider(AuthProvider authProvider) {
     _authProvider = authProvider;
     return this;

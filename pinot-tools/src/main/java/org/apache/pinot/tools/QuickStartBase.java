@@ -276,6 +276,15 @@ public abstract class QuickStartBase {
     FileUtils.copyDirectory(fileDb, baseDir);
   }
 
+  public QuickstartTableRequest createTableRequest(File quickstartTmpDir, String tableName, String directory)
+      throws IOException {
+    File baseDir = new File(quickstartTmpDir, tableName);
+    File dataDir = new File(baseDir, "rawdata");
+    dataDir.mkdirs();
+    copyResourceTableToTmpDirectory(directory, tableName, baseDir, dataDir, true);
+    return new QuickstartTableRequest(baseDir.getAbsolutePath());
+  }
+
   protected Map<String, Object> getConfigOverrides() {
     try {
       return StringUtils.isEmpty(_configFilePath) ? ImmutableMap.of()

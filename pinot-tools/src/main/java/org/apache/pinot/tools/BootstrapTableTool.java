@@ -63,8 +63,15 @@ public class BootstrapTableTool {
   private final String _tableDir;
   private final MinionClient _minionClient;
 
+  private final boolean _isUpdate;
+
   public BootstrapTableTool(String controllerProtocol, String controllerHost, int controllerPort, String tableDir,
       AuthProvider authProvider) {
+    this(controllerProtocol, controllerHost, controllerPort, tableDir, authProvider, false);
+  }
+
+  public BootstrapTableTool(String controllerProtocol, String controllerHost, int controllerPort, String tableDir,
+      AuthProvider authProvider, boolean isUpdate) {
     Preconditions.checkNotNull(controllerProtocol);
     Preconditions.checkNotNull(controllerHost);
     Preconditions.checkNotNull(tableDir);
@@ -75,6 +82,7 @@ public class BootstrapTableTool {
     _minionClient =
         new MinionClient(String.format("%s://%s:%s", controllerProtocol, controllerHost, controllerPort), authProvider);
     _authProvider = authProvider;
+    _isUpdate = isUpdate;
   }
 
   public boolean execute()
@@ -129,7 +137,7 @@ public class BootstrapTableTool {
     return new AddTableCommand().setSchemaFile(schemaFile.getAbsolutePath())
         .setTableConfigFile(tableConfigFile.getAbsolutePath()).setControllerProtocol(_controllerProtocol)
         .setControllerHost(_controllerHost).setControllerPort(String.valueOf(_controllerPort)).setExecute(true)
-        .setAuthProvider(_authProvider).execute();
+        .setAuthProvider(_authProvider).setUpdate(_isUpdate).execute();
   }
 
   private boolean createTable(File schemaFile, File offlineTableConfigFile, File realtimeTableConfigFile)

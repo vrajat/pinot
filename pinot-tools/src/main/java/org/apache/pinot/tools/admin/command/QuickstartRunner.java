@@ -235,6 +235,13 @@ public class QuickstartRunner {
     }
   }
 
+  public void updateTable(QuickstartTableRequest request) throws Exception {
+    if (!new BootstrapTableTool("http", "localhost", _controllerPorts.get(0),
+        request.getBootstrapTableDir(), _authProvider, true).execute()) {
+      throw new RuntimeException("Failed to update table with request - " + request);
+    }
+  }
+
   public JsonNode runQuery(String query)
       throws Exception {
     return runQuery(query, Collections.emptyMap());
