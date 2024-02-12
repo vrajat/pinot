@@ -150,6 +150,11 @@ import org.apache.pinot.controller.helix.core.rebalance.RebalanceResult;
 import org.apache.pinot.controller.helix.core.rebalance.TableRebalanceContext;
 import org.apache.pinot.controller.helix.core.rebalance.TableRebalancer;
 import org.apache.pinot.controller.helix.core.rebalance.ZkBasedTableRebalanceObserver;
+import org.apache.pinot.controller.helix.core.restream.TableRestreamConfig;
+import org.apache.pinot.controller.helix.core.restream.TableRestreamResult;
+import org.apache.pinot.controller.helix.core.restream.TableRestreamContext;
+import org.apache.pinot.controller.helix.core.restream.ZkBasedTableRestreamObserver;
+import org.apache.pinot.controller.helix.core.restream.TableRestreamer;
 import org.apache.pinot.controller.helix.core.util.ZKMetadataUtils;
 import org.apache.pinot.controller.helix.starter.HelixConfig;
 import org.apache.pinot.segment.spi.SegmentMetadata;
@@ -2984,6 +2989,14 @@ public class PinotHelixResourceManager {
     }
   }
 
+  public TableConfig getTableConfigOrThrow(String tableNameWithType) throws TableNotFoundException {
+    TableConfig tableConfig = ZKMetadataProvider.getTableConfig(_propertyStore, tableNameWithType);
+    if (tableConfig == null) {
+      throw new TableNotFoundException("Failed to find table config for table: " + tableNameWithType);
+    }
+    return tableConfig;
+  }
+
   /**
    * Get all tableConfigs (offline and realtime) using this schema.
    * If tables have not been created, this will return empty list.
@@ -4080,6 +4093,30 @@ public class PinotHelixResourceManager {
       tagMinInstanceMap.put(brokerTag, 1);
     }
     return tagMinInstanceMap;
+  }
+
+  /**
+   * Entry point for table Restreaming.
+   * @param tableNameWithType
+   * @param tableRestreamConfig
+   * @param restreamJobId
+   * @param trackRestreamProgress whether to track rebalance progress stats
+   * @return RestreamResult
+   * @throws TableNotFoundException
+   */
+  public TableRestreamResult restreamTable(String tableNameWithType, TableRestreamConfig tableRestreamConfig,
+      String restreamJobId, boolean trackRestreamProgress) {
+    TableConfig tableConfig = getTableConfig(tableNameWithType);
+    Preconditions.checkState(tableConfig != null, "TableConfig not found");
+    Preconditions.checkState(restreamJobId != null, "RestreamId not populated in the restreamConfig");
+    ZkBasedTableRestreamObserver zkBasedTableRestreamObserver = null;
+    if (trackRestreamProgress) {
+      zkBasedTableRestreamObserver = new ZkBasedTableRestreamObserver(tableNameWithType, restreamJobId,
+          TableRestreamContext.forInitialAttempt(restreamJobId, tableRestreamConfig), this);
+    }
+    TableRestreamer tableRestreamer =
+        new TableRestreamer(_helixZkManager, zkBasedTableRestreamObserver, _controllerMetrics);
+    return tableRestreamer.restream(tableConfig, tableRestreamConfig, restreamJobId);
   }
 
   /*

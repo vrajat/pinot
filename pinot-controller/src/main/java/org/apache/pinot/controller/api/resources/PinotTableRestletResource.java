@@ -98,6 +98,9 @@ import org.apache.pinot.controller.helix.core.rebalance.RebalanceResult;
 import org.apache.pinot.controller.helix.core.rebalance.TableRebalanceContext;
 import org.apache.pinot.controller.helix.core.rebalance.TableRebalanceProgressStats;
 import org.apache.pinot.controller.helix.core.rebalance.TableRebalancer;
+import org.apache.pinot.controller.helix.core.restream.TableRestreamConfig;
+import org.apache.pinot.controller.helix.core.restream.TableRestreamResult;
+import org.apache.pinot.controller.helix.core.restream.TableRestreamer;
 import org.apache.pinot.controller.recommender.RecommenderDriver;
 import org.apache.pinot.controller.tuner.TableConfigTunerUtils;
 import org.apache.pinot.controller.util.CompletionServiceHelper;
@@ -1209,5 +1212,117 @@ public class PinotTableRestletResource {
     }
 
     return timeBoundaryMs;
+  }
+
+  @POST
+  @Produces(MediaType.APPLICATION_JSON)
+  @Authenticate(AccessType.UPDATE)
+  @Path("/tables/{tableName}/restream")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.REBALANCE_TABLE)
+  @ApiOperation(value = "Rebalances a table (reassign instances and segments for a table)",
+      notes = "Rebalances a table (reassign instances and segments for a table)")
+  public TableRestreamResult restream(
+      //@formatter:off
+      @ApiParam(value = "Name of the table to restream", required = true) @PathParam("tableName") String tableName,
+      @ApiParam(value = "OFFLINE|REALTIME", required = true) @QueryParam("type") String tableTypeStr,
+      @ApiParam(value = "Name of the destination table", required = true) @QueryParam("destTableName") String destTableName,
+      @ApiParam(value = "Name of the tenant", required = true) @QueryParam("tenant") String tenant
+      //@formatter:on
+  ) {
+    String tableNameWithType = constructTableNameWithType(tableName, tableTypeStr);
+    TableRestreamConfig tableRestreamConfig = new TableRestreamConfig();
+    tableRestreamConfig.setDestTableName(destTableName);
+    tableRestreamConfig.setTenant(tenant);
+
+    String jobId = TableRestreamer.createUniqueJobIdentifier();
+
+    try {
+      _pinotHelixResourceManager.getTableConfigOrThrow(tableNameWithType);
+      _executorService.submit(() -> {
+        try {
+          _pinotHelixResourceManager.restreamTable(tableNameWithType, tableRestreamConfig, jobId, true);
+        } catch (Throwable t) {
+          LOGGER.error("Caught exception/error while rebalancing table: {}", tableNameWithType, t);
+        }
+      });
+      return new TableRestreamResult(jobId, TableRestreamResult.Status.IN_PROGRESS,
+              TableRestreamResult.Stage.INIT,
+              "In progress, check controller logs for updates");
+    } catch (TableNotFoundException e) {
+      throw new ControllerApplicationException(LOGGER, e.getMessage(), Response.Status.NOT_FOUND);
+    }
+  }
+
+  @DELETE
+  @Produces(MediaType.APPLICATION_JSON)
+  @Authenticate(AccessType.UPDATE)
+  @Path("/tables/{tableName}/restream")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.CANCEL_REBALANCE)
+  @ApiOperation(value = "Cancel all restream jobs for the given table, and noop if no restream is running", notes =
+      "Cancel all restream jobs for the given table, and noop if no restream is running")
+  public List<String> cancelRestream(
+      @ApiParam(value = "Name of the table to restream", required = true) @PathParam("tableName") String tableName,
+      @ApiParam(value = "OFFLINE|REALTIME", required = true) @QueryParam("type") String tableTypeStr) {
+    String tableNameWithType = constructTableNameWithType(tableName, tableTypeStr);
+    List<String> cancelledJobIds = new ArrayList<>();
+    boolean updated =
+        _pinotHelixResourceManager.updateJobsForTable(tableNameWithType, ControllerJobType.TABLE_REBALANCE,
+            jobMetadata -> {
+              String jobId = jobMetadata.get(CommonConstants.ControllerJob.JOB_ID);
+              try {
+                String jobStatsInStr = jobMetadata.get(RebalanceJobConstants.JOB_METADATA_KEY_REBALANCE_PROGRESS_STATS);
+                TableRebalanceProgressStats jobStats =
+                    JsonUtils.stringToObject(jobStatsInStr, TableRebalanceProgressStats.class);
+                if (jobStats.getStatus() != RebalanceResult.Status.IN_PROGRESS) {
+                  return;
+                }
+                cancelledJobIds.add(jobId);
+                LOGGER.info("Cancel rebalance job: {} for table: {}", jobId, tableNameWithType);
+                jobStats.setStatus(RebalanceResult.Status.CANCELLED);
+                jobMetadata.put(RebalanceJobConstants.JOB_METADATA_KEY_REBALANCE_PROGRESS_STATS,
+                    JsonUtils.objectToString(jobStats));
+              } catch (Exception e) {
+                LOGGER.error("Failed to cancel rebalance job: {} for table: {}", jobId, tableNameWithType, e);
+              }
+            });
+    LOGGER.info("Tried to cancel existing jobs at best effort and done: {}", updated);
+    return cancelledJobIds;
+  }
+
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Authenticate(AccessType.UPDATE)
+  @Path("/restreamStatus/{jobId}")
+  @Authorize(targetType = TargetType.CLUSTER, action = Actions.Cluster.GET_REBALANCE_STATUS)
+  @ApiOperation(value = "Gets detailed stats of a rebalance operation",
+      notes = "Gets detailed stats of a rebalance operation")
+  public ServerRebalanceJobStatusResponse restreamStatus(
+      @ApiParam(value = "Rebalance Job Id", required = true) @PathParam("jobId") String jobId)
+      throws JsonProcessingException {
+    Map<String, String> controllerJobZKMetadata =
+        _pinotHelixResourceManager.getControllerJobZKMetadata(jobId, ControllerJobType.TABLE_REBALANCE);
+
+    if (controllerJobZKMetadata == null) {
+      throw new ControllerApplicationException(LOGGER, "Failed to find controller job id: " + jobId,
+          Response.Status.NOT_FOUND);
+    }
+    ServerRebalanceJobStatusResponse serverRebalanceJobStatusResponse = new ServerRebalanceJobStatusResponse();
+    TableRebalanceProgressStats tableRebalanceProgressStats = JsonUtils.stringToObject(
+        controllerJobZKMetadata.get(RebalanceJobConstants.JOB_METADATA_KEY_REBALANCE_PROGRESS_STATS),
+        TableRebalanceProgressStats.class);
+    serverRebalanceJobStatusResponse.setTableRebalanceProgressStats(tableRebalanceProgressStats);
+
+    long timeSinceStartInSecs = 0L;
+    if (RebalanceResult.Status.DONE != tableRebalanceProgressStats.getStatus()) {
+      timeSinceStartInSecs = (System.currentTimeMillis() - tableRebalanceProgressStats.getStartTimeMs()) / 1000;
+    }
+    serverRebalanceJobStatusResponse.setTimeElapsedSinceStartInSeconds(timeSinceStartInSecs);
+
+    String jobCtxInStr = controllerJobZKMetadata.get(RebalanceJobConstants.JOB_METADATA_KEY_REBALANCE_CONTEXT);
+    if (StringUtils.isNotEmpty(jobCtxInStr)) {
+      TableRebalanceContext jobCtx = JsonUtils.stringToObject(jobCtxInStr, TableRebalanceContext.class);
+      serverRebalanceJobStatusResponse.setTableRebalanceContext(jobCtx);
+    }
+    return serverRebalanceJobStatusResponse;
   }
 }
