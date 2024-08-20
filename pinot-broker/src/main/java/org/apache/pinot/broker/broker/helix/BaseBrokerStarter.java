@@ -41,10 +41,14 @@ import org.apache.helix.store.zk.ZkHelixPropertyStore;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.broker.broker.AccessControlFactory;
 import org.apache.pinot.broker.broker.BrokerAdminApiApplication;
+import org.apache.pinot.broker.cursors.ResultStore;
+import org.apache.pinot.broker.cursors.ResultStoreFactory;
+import org.apache.pinot.broker.cursors.memory.MemoryResultStore;
 import org.apache.pinot.broker.queryquota.HelixExternalViewBasedQueryQuotaManager;
 import org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler;
 import org.apache.pinot.broker.requesthandler.BrokerRequestHandler;
 import org.apache.pinot.broker.requesthandler.BrokerRequestHandlerDelegate;
+import org.apache.pinot.broker.requesthandler.CursorRequestHandlerDelegate;
 import org.apache.pinot.broker.requesthandler.GrpcBrokerRequestHandler;
 import org.apache.pinot.broker.requesthandler.MultiStageBrokerRequestHandler;
 import org.apache.pinot.broker.requesthandler.SingleConnectionBrokerRequestHandler;
@@ -74,6 +78,7 @@ import org.apache.pinot.core.util.ListenerConfigUtil;
 import org.apache.pinot.spi.accounting.ThreadResourceUsageProvider;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.eventlistener.query.BrokerQueryEventListenerFactory;
+import org.apache.pinot.spi.filesystem.PinotFSFactory;
 import org.apache.pinot.spi.metrics.PinotMetricUtils;
 import org.apache.pinot.spi.metrics.PinotMetricsRegistry;
 import org.apache.pinot.spi.services.ServiceRole;
@@ -130,7 +135,12 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
   protected HelixManager _participantHelixManager;
   // Handles the server routing stats.
   protected ServerRoutingStatsManager _serverRoutingStatsManager;
+<<<<<<< HEAD
   protected HelixExternalViewBasedQueryQuotaManager _queryQuotaManager;
+=======
+  protected ResultStore _resultStore;
+  protected CursorRequestHandlerDelegate _cursorRequestHandlerDelegate;
+>>>>>>> 704a5e2bdc (Setup CursorRequestHandlerDelegate)
 
   @Override
   public void init(PinotConfiguration brokerConf)
@@ -337,6 +347,25 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
     _brokerRequestHandler =
         new BrokerRequestHandlerDelegate(singleStageBrokerRequestHandler, multiStageBrokerRequestHandler);
     _brokerRequestHandler.start();
+
+    LOGGER.info("Initializing PinotFSFactory");
+    PinotFSFactory.init(_brokerConf.subset(CommonConstants.Broker.PREFIX_OF_CONFIG_OF_PINOT_FS_FACTORY));
+
+    LOGGER.info("Initialize PaginationStore");
+    PinotConfiguration resultStoreConfiguration =
+        _brokerConf.subset(CommonConstants.CursorConfigs.PREFIX_OF_CONFIG_OF_CURSOR);
+    try {
+      _resultStore = ResultStoreFactory.create(resultStoreConfiguration);
+    } catch (Exception e) {
+      LOGGER.error("Exception when create Cursor ResultStore. Creating default result store. {}", e.getMessage());
+      _resultStore = new MemoryResultStore();
+    }
+
+    String expirationTime = getConfig().getProperty(CommonConstants.CursorConfigs.RESULTS_EXPIRATION_INTERVAL,
+        CommonConstants.CursorConfigs.DEFAULT_RESULTS_EXPIRATION_INTERVAL);
+
+    _cursorRequestHandlerDelegate =
+        new CursorRequestHandlerDelegate(_hostname, _port, _resultStore, _brokerRequestHandler, expirationTime);
 
     // Enable/disable thread CPU time measurement through instance config.
     ThreadResourceUsageProvider.setThreadCpuTimeMeasurementEnabled(
@@ -619,7 +648,7 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
     BrokerAdminApiApplication brokerAdminApiApplication =
         new BrokerAdminApiApplication(_routingManager, _brokerRequestHandler, _brokerMetrics, _brokerConf,
             _sqlQueryExecutor, _serverRoutingStatsManager, _accessControlFactory, _spectatorHelixManager,
-            _queryQuotaManager);
+            _queryQuotaManager, _cursorRequestHandlerDelegate);
     registerExtraComponents(brokerAdminApiApplication);
     return brokerAdminApiApplication;
   }
