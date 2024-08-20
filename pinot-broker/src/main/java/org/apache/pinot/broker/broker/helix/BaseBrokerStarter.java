@@ -139,12 +139,9 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
   protected HelixManager _participantHelixManager;
   // Handles the server routing stats.
   protected ServerRoutingStatsManager _serverRoutingStatsManager;
-<<<<<<< HEAD
   protected HelixExternalViewBasedQueryQuotaManager _queryQuotaManager;
-=======
   protected ResultStore _resultStore;
   protected CursorRequestHandlerDelegate _cursorRequestHandlerDelegate;
->>>>>>> 704a5e2bdc (Setup CursorRequestHandlerDelegate)
 
   @Override
   public void init(PinotConfiguration brokerConf)
