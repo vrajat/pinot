@@ -7,11 +7,7 @@ import javax.ws.rs.core.HttpHeaders;
 import org.apache.pinot.broker.api.RequesterIdentity;
 import org.apache.pinot.broker.cursors.QueryStore;
 import org.apache.pinot.broker.cursors.ResultCursor;
-<<<<<<< HEAD
 import org.apache.pinot.common.cursors.ResultMetadata;
-=======
-import org.apache.pinot.broker.cursors.ResultMetadata;
->>>>>>> 704a5e2bdc (Setup CursorRequestHandlerDelegate)
 import org.apache.pinot.broker.cursors.ResultStore;
 import org.apache.pinot.common.response.BrokerResponse;
 import org.apache.pinot.common.response.CursorResponse;
