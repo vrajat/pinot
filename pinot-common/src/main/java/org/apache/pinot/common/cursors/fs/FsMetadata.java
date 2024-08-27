@@ -1,15 +1,15 @@
-package org.apache.pinot.broker.cursors.file;
+package org.apache.pinot.common.cursors.fs;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.net.URI;
-import org.apache.pinot.broker.cursors.ResponseMetadata;
+import org.apache.pinot.common.cursors.ResponseMetadata;
 
 
 public class FsMetadata extends ResponseMetadata {
   private final URI _dataFile;
   private final URI _metadataFile;
 
-  FsMetadata(@JsonProperty("numRows") int numRows, @JsonProperty("dataFile") URI dataFile,
+  public FsMetadata(@JsonProperty("numRows") int numRows, @JsonProperty("dataFile") URI dataFile,
       @JsonProperty("metadataFile") URI metadataFile) {
     super(numRows);
     _dataFile = dataFile;

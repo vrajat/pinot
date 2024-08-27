@@ -1,11 +1,9 @@
 package org.apache.pinot.common.response;
 
-import java.util.List;
-import org.apache.pinot.common.response.broker.QueryProcessingException;
 import org.apache.pinot.common.response.broker.ResultTable;
 
 
-public interface CursorResponse {
+public interface CursorResponse extends QueryResponse {
 
   /**
    * Get the requestId of the query
@@ -60,12 +58,6 @@ public interface CursorResponse {
    * @return Query Params to get the next result set.
    */
   String getNextOffsetParams();
-
-  /**
-   * Gets a list of processing exceptions.
-   * @return A list of processing exceptions.
-   */
-  List<QueryProcessingException> getProcessingExceptions();
 
   /**
    * Return the time to write the results to the query store.

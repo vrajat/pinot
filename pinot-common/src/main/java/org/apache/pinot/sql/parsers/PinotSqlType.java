@@ -26,5 +26,6 @@ public enum PinotSqlType {
   /* Data Manipulation Language (DML), e.g. INSERT, UPSERT, UPDATE, DELETE */
   DML,
   /* Data Definition Language (DDL), e.g. CREATE, DROP, ALTER, TRUNCATE */
-  DDL
+  DDL,
+  CURSOR
 }

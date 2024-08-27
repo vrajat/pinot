@@ -1,4 +1,4 @@
-package org.apache.pinot.broker.cursors;
+package org.apache.pinot.common.cursors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;

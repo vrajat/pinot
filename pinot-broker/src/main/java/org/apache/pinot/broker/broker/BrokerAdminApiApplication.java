@@ -33,6 +33,7 @@ import org.apache.hc.core5.http.io.SocketConfig;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.helix.HelixManager;
 import org.apache.pinot.broker.queryquota.QueryQuotaManager;
+import org.apache.pinot.broker.cursors.ResultStore;
 import org.apache.pinot.broker.requesthandler.BrokerRequestHandler;
 import org.apache.pinot.broker.requesthandler.CursorRequestHandlerDelegate;
 import org.apache.pinot.broker.routing.BrokerRoutingManager;
@@ -77,7 +78,7 @@ public class BrokerAdminApiApplication extends ResourceConfig {
       BrokerMetrics brokerMetrics, PinotConfiguration brokerConf, SqlQueryExecutor sqlQueryExecutor,
       ServerRoutingStatsManager serverRoutingStatsManager, AccessControlFactory accessFactory,
       HelixManager helixManager, QueryQuotaManager queryQuotaManager,
-      CursorRequestHandlerDelegate cursorRequestHandlerDelegate) {
+      CursorRequestHandlerDelegate cursorRequestHandlerDelegate, ResultStore resultStore) {
     _brokerResourcePackages = brokerConf.getProperty(CommonConstants.Broker.BROKER_RESOURCE_PACKAGES,
         CommonConstants.Broker.DEFAULT_BROKER_RESOURCE_PACKAGES);
     String[] pkgs = _brokerResourcePackages.split(",");
@@ -119,6 +120,8 @@ public class BrokerAdminApiApplication extends ResourceConfig {
         bind(accessFactory).to(AccessControlFactory.class);
         bind(startTime).named(BrokerAdminApiApplication.START_TIME);
         bind(cursorRequestHandlerDelegate).to(CursorRequestHandlerDelegate.class);
+        bind(resultStore).to(ResultStore.class);
+        bind(brokerConf).to(PinotConfiguration.class);
       }
     });
     boolean enableBoundedJerseyThreadPoolExecutor =

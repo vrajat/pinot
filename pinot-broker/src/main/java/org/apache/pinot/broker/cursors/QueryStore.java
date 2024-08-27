@@ -3,6 +3,7 @@ package org.apache.pinot.broker.cursors;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.util.List;
+import org.apache.pinot.common.cursors.ResultMetadata;
 import org.apache.pinot.common.response.BrokerResponse;
 import org.apache.pinot.common.response.CursorResponse;
 import org.apache.pinot.common.response.broker.ResultTable;
