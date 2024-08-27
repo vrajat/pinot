@@ -1,6 +1,8 @@
 package org.apache.pinot.broker.cursors;
 
 import java.util.Collections;
+import org.apache.pinot.common.cursors.ResponseMetadata;
+import org.apache.pinot.common.cursors.ResultMetadata;
 import org.apache.pinot.common.response.CursorResponse;
 import org.apache.pinot.common.response.broker.CursorResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;

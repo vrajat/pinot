@@ -1,6 +1,7 @@
 package org.apache.pinot.broker.cursors;
 
 import java.util.Collection;
+import org.apache.pinot.common.cursors.ResultMetadata;
 import org.apache.pinot.spi.env.PinotConfiguration;
 
 

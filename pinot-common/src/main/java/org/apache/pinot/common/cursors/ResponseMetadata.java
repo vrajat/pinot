@@ -1,9 +1,9 @@
-package org.apache.pinot.broker.cursors;
+package org.apache.pinot.common.cursors;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.apache.pinot.broker.cursors.file.FsMetadata;
+import org.apache.pinot.common.cursors.fs.FsMetadata;
 
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")

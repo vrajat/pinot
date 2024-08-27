@@ -125,7 +125,7 @@ public class CursorResponseNative implements CursorResponse {
   }
 
   @JsonProperty("exceptions")
-  public List<QueryProcessingException> getProcessingExceptions() {
+  public List<QueryProcessingException> getExceptions() {
     return this._processingExceptions;
   }
 

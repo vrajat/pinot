@@ -455,6 +455,11 @@ public class CommonConstants {
         // executed in an  Unbounded FCFS fashion. However, secondary workloads are executed in a constrainted FCFS
         // fashion with limited compute.
         public static final String IS_SECONDARY_WORKLOAD = "isSecondaryWorkload";
+
+        public static final String GET_CURSOR = "getCursor";
+        public static final String GET_CURSOR_NUM_ROWS = "cursorNumRows";
+        public static final String CURSOR_REQUEST_ID = "cursorRequestId";
+        public static final String CURSOR_OFFSET = "cursorOffset";
       }
 
       public static class QueryOptionValue {

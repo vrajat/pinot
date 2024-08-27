@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.pinot.broker.cursors.QueryStore;
-import org.apache.pinot.broker.cursors.ResultMetadata;
+import org.apache.pinot.common.cursors.ResultMetadata;
 import org.apache.pinot.broker.cursors.ResultStore;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.filesystem.FileMetadata;

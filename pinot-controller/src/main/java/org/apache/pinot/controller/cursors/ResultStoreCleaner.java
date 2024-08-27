@@ -21,9 +21,11 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.auth.AuthProviderUtils;
+import org.apache.pinot.common.cursors.ResultMetadata;
 import org.apache.pinot.common.http.MultiHttpRequest;
 import org.apache.pinot.common.http.MultiHttpRequestResponse;
 import org.apache.pinot.common.metrics.ControllerMetrics;
+import org.apache.pinot.common.restlet.resources.ResultResponse;
 import org.apache.pinot.controller.ControllerConf;
 import org.apache.pinot.controller.LeadControllerManager;
 import org.apache.pinot.controller.api.resources.InstanceInfo;
@@ -101,13 +103,13 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
     try {
       Map<String, String> requestHeaders = AuthProviderUtils.makeAuthHeadersMap(_authProvider);
 
-      Map<String, STPClientResource.ResultResponse> brokerResponses = getAllQueryResults(brokers, requestHeaders);
+      Map<String, ResultResponse> brokerResponses = getAllQueryResults(brokers, requestHeaders);
 
       String protocol = _controllerConf.getControllerBrokerProtocol();
       int portOverride = _controllerConf.getControllerBrokerPortOverride();
 
       List<String> brokerUrls = new ArrayList<>();
-      for (Map.Entry<String, STPClientResource.ResultResponse> entry : brokerResponses.entrySet()) {
+      for (Map.Entry<String, ResultResponse> entry : brokerResponses.entrySet()) {
         for (ResultMetadata metadata : entry.getValue().getResultMetadataList()) {
           if (metadata.getExpirationTimeMs() <= currentTime) {
             InstanceInfo broker = brokers.get(entry.getKey());
@@ -126,7 +128,7 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
     }
   }
 
-  private Map<String, STPClientResource.ResultResponse> getAllQueryResults(Map<String, InstanceInfo> brokers,
+  private Map<String, ResultResponse> getAllQueryResults(Map<String, InstanceInfo> brokers,
       Map<String, String> requestHeaders)
       throws Exception {
     String protocol = _controllerConf.getControllerBrokerProtocol();
@@ -140,7 +142,7 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
     Map<String, String> strResponseMap = getResponseMap(requestHeaders, brokerUrls, "GET", HttpGet::new);
     return strResponseMap.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> {
       try {
-        return JsonUtils.stringToObject(e.getValue(), STPClientResource.ResultResponse.class);
+        return JsonUtils.stringToObject(e.getValue(), ResultResponse.class);
       } catch (JsonProcessingException ex) {
         throw new RuntimeException(ex);
       }

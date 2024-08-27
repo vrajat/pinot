@@ -960,4 +960,13 @@ public abstract class BaseControllerStarter implements ServiceStartable {
   protected ControllerAdminApiApplication createControllerAdminApp() {
     return new ControllerAdminApiApplication(_config);
   }
+
+  /**
+   * Return the PeriodicTaskScheduler instance so that the periodic tasks can be tested.
+   * @return PeriodicTaskScheduler.
+   */
+  @VisibleForTesting
+  public PeriodicTaskScheduler getPeriodicTaskScheduler() {
+    return _periodicTaskScheduler;
+  }
 }

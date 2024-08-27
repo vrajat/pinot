@@ -20,7 +20,6 @@ package org.apache.pinot.common.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -32,7 +31,7 @@ import org.apache.pinot.spi.utils.JsonUtils;
 /**
  * Interface for broker response.
  */
-public interface BrokerResponse {
+public interface BrokerResponse extends QueryResponse {
 
   /**
    * Convert the broker response to JSON String.
@@ -40,14 +39,6 @@ public interface BrokerResponse {
   default String toJsonString()
       throws IOException {
     return JsonUtils.objectToString(this);
-  }
-
-  /**
-   * Write the object JSON to the output stream.
-   */
-  default void toOutputStream(OutputStream outputStream)
-      throws IOException {
-    JsonUtils.objectToOutputStream(this, outputStream);
   }
 
   /**
@@ -71,11 +62,6 @@ public interface BrokerResponse {
    * Returns whether the query doesn't guarantee to have the complete result due to exceptions or limits.
    */
   boolean isPartialResult();
-
-  /**
-   * Returns the processing exceptions encountered during the query execution.
-   */
-  List<QueryProcessingException> getExceptions();
 
   @Deprecated
   @JsonIgnore
