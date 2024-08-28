@@ -8,9 +8,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import org.apache.pinot.broker.cursors.QueryStore;
-import org.apache.pinot.common.cursors.ResultMetadata;
-import org.apache.pinot.broker.cursors.ResultStore;
+import org.apache.pinot.common.cursors.fs.FsMetadata;
+import org.apache.pinot.spi.cursors.QueryStore;
+import org.apache.pinot.spi.cursors.ResultMetadata;
+import org.apache.pinot.spi.cursors.ResultStore;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.filesystem.FileMetadata;
 import org.apache.pinot.spi.filesystem.PinotFS;
@@ -22,6 +23,9 @@ import org.slf4j.LoggerFactory;
 
 public class FsResultStore implements ResultStore {
   private static final Logger LOGGER = LoggerFactory.getLogger(FsResultStore.class);
+  private static final String RESULT_TABLE_FILE_NAME_FORMAT = "resultTable.json";
+  private static final String RESPONSE_FILE_NAME_FORMAT = "response.json";
+
   Path _localTempDir;
   URI _dataDir;
 
@@ -47,8 +51,10 @@ public class FsResultStore implements ResultStore {
 
     // Create a directory for this query.
     pinotFS.mkdir(queryDir);
-    ResultMetadata.write(pinotFS, Utils.getTempPath(_localTempDir, requestId, FsQueryStore.METADATA_FILENAME),
-        FsQueryStore.getMetadataFile(queryDir), metadata);
+    FsMetadata fsMetadata = new FsMetadata(Utils.combinePath(queryDir, RESULT_TABLE_FILE_NAME_FORMAT),
+        Utils.combinePath(queryDir, RESPONSE_FILE_NAME_FORMAT), metadata);
+    FsMetadata.write(pinotFS, Utils.getTempPath(_localTempDir, requestId, FsQueryStore.METADATA_FILENAME),
+        FsQueryStore.getMetadataFile(queryDir), fsMetadata);
     return new FsQueryStore(pinotFS, requestId, _localTempDir, queryDir);
   }
 
@@ -81,10 +87,12 @@ public class FsResultStore implements ResultStore {
           URI queryDir = new URI(metadata.getFilePath());
           URI metadataFile = FsQueryStore.getMetadataFile(queryDir);
           boolean metadataFileExists = pinotFS.exists(metadataFile);
-          LOGGER.debug(String.format("Checking for query dir %s & metadata file: %s. Metadata file exists: %s", queryDir,
-              metadataFile, metadataFileExists));
+          LOGGER.debug(
+              String.format("Checking for query dir %s & metadata file: %s. Metadata file exists: %s", queryDir,
+                  metadataFile, metadataFileExists));
           if (metadataFileExists) {
-            ResultMetadata resultMetadata = ResultMetadata.read(pinotFS, metadataFile);
+            FsMetadata fsMetadata = FsMetadata.read(pinotFS, metadataFile);
+            ResultMetadata resultMetadata = fsMetadata.getResultMetadata();
             queryStoreList.add(new FsQueryStore(pinotFS, resultMetadata.getRequestId(), _localTempDir, queryDir));
             LOGGER.debug("Added query store {}", queryDir);
           }

@@ -39,6 +39,7 @@ import java.util.EnumSet;
 import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.segment.spi.memory.PinotInputStream;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
+import org.apache.pinot.spi.query.ResultSchema;
 import org.apache.pinot.spi.utils.ByteArray;
 import org.apache.pinot.spi.utils.BytesUtils;
 import org.apache.pinot.spi.utils.CommonConstants.NullValuePlaceHolder;
@@ -51,7 +52,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * The <code>DataSchema</code> class describes the schema of {@link DataTable}.
  */
 @JsonPropertyOrder({"columnNames", "columnDataTypes"})
-public class DataSchema {
+public class DataSchema implements ResultSchema {
   private final String[] _columnNames;
   private final ColumnDataType[] _columnDataTypes;
   private ColumnDataType[] _storedColumnDataTypes;

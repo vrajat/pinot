@@ -23,13 +23,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.List;
 import org.apache.pinot.common.utils.DataSchema;
+import org.apache.pinot.spi.query.ResultSchema;
+import org.apache.pinot.spi.query.ResultSet;
 
 
 /**
  * A tabular structure for representing result rows
  */
 @JsonPropertyOrder({"dataSchema", "rows"})
-public class ResultTable {
+public class ResultTable implements ResultSet {
   private final DataSchema _dataSchema;
   private final List<Object[]> _rows;
 
@@ -47,5 +49,9 @@ public class ResultTable {
   @JsonProperty("rows")
   public List<Object[]> getRows() {
     return _rows;
+  }
+
+  public ResultSchema getResultSchema() {
+    return _dataSchema;
   }
 }

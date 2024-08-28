@@ -43,7 +43,6 @@ import org.apache.pinot.common.metrics.BrokerMeter;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.response.BrokerResponse;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
-import org.apache.pinot.common.response.broker.QueryProcessingException;
 import org.apache.pinot.common.utils.request.RequestUtils;
 import org.apache.pinot.spi.auth.AuthorizationResult;
 import org.apache.pinot.spi.env.PinotConfiguration;
@@ -169,10 +168,10 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
   protected static void augmentStatistics(RequestContext statistics, BrokerResponse response) {
     statistics.setNumRowsResultSet(response.getNumRowsResultSet());
     // TODO: Add partial result flag to RequestContext
-    List<QueryProcessingException> exceptions = response.getExceptions();
+    List<? extends org.apache.pinot.spi.query.QueryException> exceptions = response.getExceptions();
     int numExceptions = exceptions.size();
     List<String> processingExceptions = new ArrayList<>(numExceptions);
-    for (QueryProcessingException exception : exceptions) {
+    for (org.apache.pinot.spi.query.QueryException exception : exceptions) {
       processingExceptions.add(exception.toString());
     }
     statistics.setProcessingExceptions(processingExceptions);

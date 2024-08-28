@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Properties;
 import javax.annotation.Nullable;
 import org.apache.pinot.common.exception.HttpErrorStatusException;
-import org.apache.pinot.common.response.CursorResponse;
+import org.apache.pinot.spi.cursors.CursorResponse;
 import org.apache.pinot.common.response.broker.CursorResponseNative;
 import org.apache.pinot.common.restlet.resources.ResultResponse;
 import org.apache.pinot.common.utils.config.TagNameUtils;
@@ -131,7 +131,8 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
   }
 
   protected Map<String, String> getCursorOffset(String requestId, String nextOffsetParams) {
-    Map<String, String> params = Splitter.on('&').omitEmptyStrings().trimResults().withKeyValueSeparator('=').split(nextOffsetParams);
+    Map<String, String> params = Splitter.on('&').omitEmptyStrings().trimResults().withKeyValueSeparator('=')
+        .split(nextOffsetParams);
     Map<String, String> options = new java.util.HashMap<>(Map.of(CommonConstants.Broker.Request.QUERY_OPTIONS,
         String.format("%s=%s;%s=%s", CommonConstants.Broker.Request.QueryOptionKey.CURSOR_REQUEST_ID, requestId,
             CommonConstants.Broker.Request.QueryOptionKey.CURSOR_OFFSET, params.get("offset"))));
@@ -168,13 +169,13 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     List<CursorResponse> resultPages = new ArrayList<>(numPages);
     resultPages.add(firstResponse);
 
-    String nextOffsetParams = firstResponse.getNextOffsetParams();
+    int offset = 0;
     for (int count = 1; count < numPages; count++) {
       JsonNode pinotResponse = ClusterTest.postQuery("", getBrokerQueryApiUrl(queryResourceUrl), headers,
-          getCursorOffset(firstResponse.getRequestId(), nextOffsetParams));
+          getCursorOffset(firstResponse.getRequestId(), String.format("offset=%d&numRows=%d", offset, numRows)));
       CursorResponse response = JsonUtils.jsonNodeToObject(pinotResponse, CursorResponseNative.class);
       resultPages.add(response);
-      nextOffsetParams = response.getNextOffsetParams();
+      offset += numRows;
     }
     return resultPages;
   }
@@ -193,7 +194,8 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
 
     CursorResponse pinotPagingResponse;
     pinotPagingResponse = JsonUtils.jsonNodeToObject(
-        ClusterTest.postQuery(pinotQuery, getBrokerQueryApiUrl(queryResourceUrl), headers, getCursorQueryProperties(_resultSize)), CursorResponseNative.class);
+        ClusterTest.postQuery(pinotQuery, getBrokerQueryApiUrl(queryResourceUrl), headers,
+            getCursorQueryProperties(_resultSize)), CursorResponseNative.class);
     if (!pinotPagingResponse.getExceptions().isEmpty()) {
       throw new RuntimeException(
           "Got Exceptions from Query Response: " + pinotPagingResponse.getExceptions().get(0));
@@ -248,8 +250,8 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     _resultSize = 10000;
     // Submit query
     CursorResponse pinotPagingResponse;
-    JsonNode jsonNode = ClusterTest.postQuery(TEST_QUERY_THREE, getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
-    getCursorQueryProperties(_resultSize));
+    JsonNode jsonNode = ClusterTest.postQuery(TEST_QUERY_THREE, getBrokerQueryApiUrl(getBrokerBaseApiUrl()),
+        getHeaders(), getCursorQueryProperties(_resultSize));
 
     pinotPagingResponse = JsonUtils.jsonNodeToObject(jsonNode, CursorResponseNative.class);
     if (!pinotPagingResponse.getExceptions().isEmpty()) {
@@ -263,15 +265,18 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     Assert.assertTrue(pinotPagingResponse.getCursorFetchTimeMs() >= 0);
     Assert.assertTrue(pinotPagingResponse.getCursorResultWriteTimeMs() >= 0);
 
-    while (pinotPagingResponse.getNextOffsetParams() != null) {
+    int totalRows = pinotPagingResponse.getNumRowsResultSet();
+    int offset = 0;
+    while (offset < totalRows) {
       JsonNode pinotResponse = ClusterTest.postQuery("", getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
-          getCursorOffset(requestId, pinotPagingResponse.getNextOffsetParams()));
+          getCursorOffset(requestId, String.format("offset=%d&numRows=%d", offset, _resultSize)));
       pinotPagingResponse = JsonUtils.jsonNodeToObject(pinotResponse, CursorResponseNative.class);
 
       Assert.assertFalse(pinotPagingResponse.getBrokerHost().isEmpty());
       Assert.assertTrue(pinotPagingResponse.getBrokerPort() > 0);
       Assert.assertEquals(pinotPagingResponse.getCursorResultWriteTimeMs(), -1);
       Assert.assertTrue(pinotPagingResponse.getCursorFetchTimeMs() >= 0);
+      offset += _resultSize;
     }
     ClusterTest.sendDeleteRequest(getBrokerDeleteQueryStoresApiUrl(getBrokerBaseApiUrl(), requestId), getHeaders());
   }
@@ -329,8 +334,8 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
   public void testQueryWithEmptyResult()
       throws Exception {
     JsonNode pinotResponse;
-    pinotResponse = ClusterTest.postQuery(EMPTY_RESULT_QUERY, getBrokerPagingQueryApiUrl(getBrokerBaseApiUrl(), 10000), getHeaders(),
-        getExtraQueryProperties());
+    pinotResponse = ClusterTest.postQuery(EMPTY_RESULT_QUERY, getBrokerPagingQueryApiUrl(getBrokerBaseApiUrl(),
+            10000), getHeaders(), getExtraQueryProperties());
     // There should be no resultTable.
     Assert.assertTrue(pinotResponse.get("resultTable").isNull());
     // Total Rows in result set should be 0.
@@ -357,7 +362,8 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
         CursorResponseNative.class);
     Assert.assertTrue(pinotPagingResponse.getExceptions().isEmpty());
     ClusterTest.postQuery("", getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
-        getCursorOffset(pinotPagingResponse.getRequestId(), "offset=" + (pinotPagingResponse.getNumRowsResultSet() + 1)));
+        getCursorOffset(pinotPagingResponse.getRequestId(),
+            "offset=" + (pinotPagingResponse.getNumRowsResultSet() + 1)));
   }
 
   @Test

@@ -9,7 +9,6 @@ public class Utils {
   private static final String URI_SEPARATOR = "/";
 
   private Utils() {
-
   }
 
   public static Path getTempPath(Path localTempDir, String... nameParts) {

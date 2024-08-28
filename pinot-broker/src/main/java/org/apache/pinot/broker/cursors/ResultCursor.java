@@ -1,6 +1,7 @@
 package org.apache.pinot.broker.cursors;
 
-import org.apache.pinot.common.response.CursorResponse;
+import org.apache.pinot.spi.cursors.CursorResponse;
+import org.apache.pinot.spi.cursors.QueryStore;
 
 
 public class ResultCursor {
@@ -35,7 +36,7 @@ public class ResultCursor {
    */
   public CursorResponse fetch(int numRows)
       throws Exception {
-    CursorResponse response = _queryStore.getResponse(_offset, numRows);
+    CursorResponse response = _queryStore.getCursorResponse(_offset, numRows);
     _offset += numRows;
     return response;
   }

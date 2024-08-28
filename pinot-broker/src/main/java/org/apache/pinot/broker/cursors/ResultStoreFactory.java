@@ -5,6 +5,7 @@ import org.apache.pinot.broker.cursors.file.FsResultStore;
 import org.apache.pinot.broker.cursors.memory.MemoryResultStore;
 import org.apache.pinot.common.auth.AuthConfig;
 import org.apache.pinot.common.auth.AuthProviderUtils;
+import org.apache.pinot.spi.cursors.ResultStore;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.slf4j.Logger;
@@ -13,7 +14,6 @@ import org.slf4j.LoggerFactory;
 
 public class ResultStoreFactory {
   private ResultStoreFactory() {
-
   }
 
   static final String RESULT_STORE_CLASS_KEY_SUFFIX = ".class";
