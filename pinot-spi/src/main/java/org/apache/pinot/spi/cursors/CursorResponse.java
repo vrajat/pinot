@@ -1,6 +1,6 @@
-package org.apache.pinot.common.response;
+package org.apache.pinot.spi.cursors;
 
-import org.apache.pinot.common.response.broker.ResultTable;
+import org.apache.pinot.spi.query.QueryResponse;
 
 
 public interface CursorResponse extends QueryResponse {
@@ -29,12 +29,6 @@ public interface CursorResponse extends QueryResponse {
   int getBrokerPort();
 
   /**
-   * Get the result table.
-   * @return result table.
-   */
-  ResultTable getResultTable();
-
-  /**
    * Get the total number of rows in result set
    */
   int getNumRowsResultSet();
@@ -51,13 +45,6 @@ public interface CursorResponse extends QueryResponse {
    * @return Number of rows in the current response.
    */
   int getNumRows();
-
-  /**
-   * Query Params to get the next result set.
-   * The next response will have the same number of rows as the current response.
-   * @return Query Params to get the next result set.
-   */
-  String getNextOffsetParams();
 
   /**
    * Return the time to write the results to the query store.

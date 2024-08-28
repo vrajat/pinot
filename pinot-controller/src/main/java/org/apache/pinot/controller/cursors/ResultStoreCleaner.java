@@ -21,7 +21,7 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.auth.AuthProviderUtils;
-import org.apache.pinot.common.cursors.ResultMetadata;
+import org.apache.pinot.spi.cursors.ResultMetadata;
 import org.apache.pinot.common.http.MultiHttpRequest;
 import org.apache.pinot.common.http.MultiHttpRequestResponse;
 import org.apache.pinot.common.metrics.ControllerMetrics;
@@ -77,8 +77,8 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
     String resultStoreCleanerTaskPeriod =
         config.getProperty(CommonConstants.CursorConfigs.RESULT_STORE_CLEANER_FREQUENCY_PERIOD);
     if (resultStoreCleanerTaskPeriod != null) {
-      frequencyInSeconds =
-          TimeUnit.SECONDS.convert(TimeUtils.convertPeriodToMillis(resultStoreCleanerTaskPeriod), TimeUnit.MILLISECONDS);
+      frequencyInSeconds = TimeUnit.SECONDS.convert(TimeUtils.convertPeriodToMillis(resultStoreCleanerTaskPeriod),
+          TimeUnit.MILLISECONDS);
     }
 
     return frequencyInSeconds;

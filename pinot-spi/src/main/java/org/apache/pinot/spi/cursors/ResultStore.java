@@ -1,7 +1,6 @@
-package org.apache.pinot.broker.cursors;
+package org.apache.pinot.spi.cursors;
 
 import java.util.Collection;
-import org.apache.pinot.common.cursors.ResultMetadata;
 import org.apache.pinot.spi.env.PinotConfiguration;
 
 
@@ -60,7 +59,7 @@ public interface ResultStore {
   /**
    * Delete a QueryStore for a query id.
    *
-   * @param requestId Query Id of the query.
+   * @param requestId Query id of the query.
    * @return The deleted QueryStore
    * @throws Exception
    */

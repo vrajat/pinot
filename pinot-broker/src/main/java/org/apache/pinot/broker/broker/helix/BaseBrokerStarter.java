@@ -41,7 +41,7 @@ import org.apache.helix.store.zk.ZkHelixPropertyStore;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.broker.broker.AccessControlFactory;
 import org.apache.pinot.broker.broker.BrokerAdminApiApplication;
-import org.apache.pinot.broker.cursors.ResultStore;
+import org.apache.pinot.spi.cursors.ResultStore;
 import org.apache.pinot.broker.cursors.ResultStoreFactory;
 import org.apache.pinot.broker.cursors.memory.MemoryResultStore;
 import org.apache.pinot.broker.queryquota.HelixExternalViewBasedQueryQuotaManager;

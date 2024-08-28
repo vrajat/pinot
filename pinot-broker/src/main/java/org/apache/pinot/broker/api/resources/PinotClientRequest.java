@@ -56,9 +56,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
 import org.apache.pinot.broker.api.HttpRequesterIdentity;
-import org.apache.pinot.broker.cursors.QueryStore;
 import org.apache.pinot.broker.cursors.ResultCursor;
-import org.apache.pinot.broker.cursors.ResultStore;
 import org.apache.pinot.broker.requesthandler.BrokerRequestHandler;
 import org.apache.pinot.broker.requesthandler.CursorRequestHandlerDelegate;
 import org.apache.pinot.common.exception.QueryException;
@@ -66,9 +64,7 @@ import org.apache.pinot.common.metrics.BrokerMeter;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.response.BrokerResponse;
 import org.apache.pinot.common.response.PinotBrokerTimeSeriesResponse;
-import org.apache.pinot.common.response.QueryResponse;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
-import org.apache.pinot.common.response.broker.QueryProcessingException;
 import org.apache.pinot.common.utils.request.RequestUtils;
 import org.apache.pinot.core.auth.Actions;
 import org.apache.pinot.core.auth.Authorize;
@@ -77,6 +73,7 @@ import org.apache.pinot.core.auth.TargetType;
 import org.apache.pinot.core.query.executor.sql.SqlQueryExecutor;
 import org.apache.pinot.spi.trace.RequestContext;
 import org.apache.pinot.spi.env.PinotConfiguration;
+import org.apache.pinot.spi.query.QueryResponse;
 import org.apache.pinot.spi.trace.RequestScope;
 import org.apache.pinot.spi.trace.Tracing;
 import org.apache.pinot.spi.utils.CommonConstants;
@@ -476,7 +473,7 @@ public class PinotClientRequest {
   static Response getPinotQueryResponse(QueryResponse brokerResponse)
       throws Exception {
     int queryErrorCodeHeaderValue = -1; // default value of the header.
-    List<QueryProcessingException> exceptions = brokerResponse.getExceptions();
+    List<? extends org.apache.pinot.spi.query.QueryException> exceptions = brokerResponse.getExceptions();
     if (!exceptions.isEmpty()) {
       // set the header value as first exception error code value.
       queryErrorCodeHeaderValue = exceptions.get(0).getErrorCode();
@@ -496,7 +493,8 @@ public class PinotClientRequest {
 
     String queryOptions = requestJson.get(Request.QUERY_OPTIONS).asText();
     Map<String, String> options = RequestUtils.getOptionsFromString(queryOptions);
-    if (options.containsKey(Request.QueryOptionKey.CURSOR_REQUEST_ID) && options.containsKey(Request.QueryOptionKey.CURSOR_OFFSET)) {
+    if (options.containsKey(Request.QueryOptionKey.CURSOR_REQUEST_ID) && options.containsKey(
+        Request.QueryOptionKey.CURSOR_OFFSET)) {
       return true;
     }
 

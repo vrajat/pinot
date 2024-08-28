@@ -23,8 +23,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.apache.pinot.common.response.broker.QueryProcessingException;
 import org.apache.pinot.common.response.broker.ResultTable;
+import org.apache.pinot.spi.query.QueryException;
+import org.apache.pinot.spi.query.QueryResponse;
+import org.apache.pinot.spi.query.ResultSet;
 import org.apache.pinot.spi.utils.JsonUtils;
 
 
@@ -47,11 +49,20 @@ public interface BrokerResponse extends QueryResponse {
   @Nullable
   ResultTable getResultTable();
 
+  @Nullable
+  default ResultSet getResultSet() {
+    return getResultTable();
+  }
+
   /**
    * Sets the result table. We expose this method to allow modifying the results on the client side, e.g. hiding the
    * results and only showing the stats.
    */
   void setResultTable(@Nullable ResultTable resultTable);
+
+  default void setResultSet(@Nullable ResultSet resultSet) {
+    setResultTable((ResultTable) resultSet);
+  }
 
   /**
    * Returns the number of rows in the result table.
@@ -65,7 +76,7 @@ public interface BrokerResponse extends QueryResponse {
 
   @Deprecated
   @JsonIgnore
-  default List<QueryProcessingException> getProcessingExceptions() {
+  default List<? extends QueryException> getProcessingExceptions() {
     return getExceptions();
   }
 

@@ -2,9 +2,9 @@ package org.apache.pinot.broker.cursors.memory;
 
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.pinot.broker.cursors.QueryStore;
-import org.apache.pinot.common.cursors.ResultMetadata;
-import org.apache.pinot.broker.cursors.ResultStore;
+import org.apache.pinot.spi.cursors.QueryStore;
+import org.apache.pinot.spi.cursors.ResultMetadata;
+import org.apache.pinot.spi.cursors.ResultStore;
 import org.apache.pinot.spi.env.PinotConfiguration;
 
 

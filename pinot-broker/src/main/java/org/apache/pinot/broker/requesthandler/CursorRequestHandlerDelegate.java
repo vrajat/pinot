@@ -1,17 +1,16 @@
 package org.apache.pinot.broker.requesthandler;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import java.util.ArrayList;
 import javax.annotation.Nullable;
 import javax.ws.rs.core.HttpHeaders;
 import org.apache.pinot.broker.api.RequesterIdentity;
-import org.apache.pinot.broker.cursors.QueryStore;
 import org.apache.pinot.broker.cursors.ResultCursor;
-import org.apache.pinot.common.cursors.ResultMetadata;
-import org.apache.pinot.broker.cursors.ResultStore;
+import org.apache.pinot.spi.cursors.CursorResponse;
 import org.apache.pinot.common.response.BrokerResponse;
-import org.apache.pinot.common.response.CursorResponse;
 import org.apache.pinot.common.response.broker.CursorResponseNative;
+import org.apache.pinot.spi.cursors.QueryStore;
+import org.apache.pinot.spi.cursors.ResultMetadata;
+import org.apache.pinot.spi.cursors.ResultStore;
 import org.apache.pinot.spi.trace.RequestContext;
 import org.apache.pinot.spi.utils.TimeUtils;
 import org.apache.pinot.sql.parsers.SqlNodeAndOptions;
@@ -47,12 +46,11 @@ public class CursorRequestHandlerDelegate {
     long submissionTimeMs = System.currentTimeMillis();
     ResultMetadata metadata =
         new ResultMetadata(_brokerHost, _brokerPort, response.getRequestId(), response.getBrokerId(),
-            submissionTimeMs, submissionTimeMs + _expirationIntervalInMs,
-            new ArrayList<>());
+            submissionTimeMs, submissionTimeMs + _expirationIntervalInMs, response.getNumRowsResultSet());
 
     long cursorStoreStartTimeMs = System.currentTimeMillis();
     QueryStore queryStore = _resultStore.initQueryStore(metadata);
-    queryStore.addResponse(response);
+    queryStore.setResponse(response);
     long cursorStoreTimeMs = System.currentTimeMillis() - cursorStoreStartTimeMs;
 
     ResultCursor cursor = new ResultCursor(queryStore);

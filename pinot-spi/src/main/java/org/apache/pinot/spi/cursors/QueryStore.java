@@ -1,12 +1,8 @@
-package org.apache.pinot.broker.cursors;
+package org.apache.pinot.spi.cursors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
-import java.util.List;
-import org.apache.pinot.common.cursors.ResultMetadata;
-import org.apache.pinot.common.response.BrokerResponse;
-import org.apache.pinot.common.response.CursorResponse;
-import org.apache.pinot.common.response.broker.ResultTable;
+import org.apache.pinot.spi.query.QueryResponse;
 
 
 /**
@@ -16,14 +12,14 @@ import org.apache.pinot.common.response.broker.ResultTable;
  */
 public interface QueryStore {
   /**
-   * Add a response for a query.
+   * Set a response for a query.
    * A query's result set maybe made up of many BrokerResponses. Add a response to the list of responses of the query.
    * It is assumed that the responses are added in the sequence it should be returned.
    * The implementation is expected to also manage any metadata associated with the response.
    * @param response BrokerResponse containing a partial result set.
    * @throws Exception
    */
-  void addResponse(BrokerResponse response)
+  void setResponse(QueryResponse response)
       throws Exception;
 
   /**
@@ -33,31 +29,22 @@ public interface QueryStore {
    * @return A BrokerResponse that contains the offset.
    * @throws Exception
    */
-  CursorResponse getResponse(int offset, int numRows)
+  CursorResponse getCursorResponse(int offset, int numRows)
       throws Exception;
 
   /**
    * Return metadata about the query result in QueryStore object
-   * @return ResultMetadata object
+   * @return Metadata object
    */
   ResultMetadata getResultMetadata()
       throws Exception;
 
   /**
-   * Get the result table at a specific index
-   * @param index Index in the list of ResultTable objects
-   * @return Returns the object at an index
-   * @throws IndexOutOfBoundsException if index is out of bounds of the list.
-   */
-  ResultTable getResultTable(int index)
-      throws Exception;
-
-  /**
-   * Get all BrokerResponse objects without the ResultTable.
+   * Get QueryResponse without the ResultSet.
    * Note that JsonNode objects are returned since serialized versions do not have type information to
-   * instantiate an implementation of BrokerResponse interface.
-   * @return List of JsonNode objects of BrokerResponse objects
+   * instantiate an implementation of QueryResponse interface.
+   * @return A JsonNode object of QueryResponse object
    */
-  List<JsonNode> getBrokerResponses()
+  JsonNode getQueryResponseMetadata()
       throws IOException;
 }
