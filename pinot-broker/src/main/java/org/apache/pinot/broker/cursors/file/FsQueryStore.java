@@ -7,7 +7,6 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.pinot.broker.cursors.BaseQueryStore;
-import org.apache.pinot.common.cursors.fs.FsMetadata;
 import org.apache.pinot.spi.cursors.ResultMetadata;
 import org.apache.pinot.spi.filesystem.PinotFS;
 import org.apache.pinot.spi.query.QueryResponse;

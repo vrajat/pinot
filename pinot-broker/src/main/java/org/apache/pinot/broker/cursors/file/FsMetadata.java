@@ -1,4 +1,4 @@
-package org.apache.pinot.common.cursors.fs;
+package org.apache.pinot.broker.cursors.file;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.net.URI;
