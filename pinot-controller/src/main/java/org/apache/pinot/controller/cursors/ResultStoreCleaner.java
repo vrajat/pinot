@@ -42,8 +42,8 @@ import org.slf4j.LoggerFactory;
 public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
   private static final Logger LOGGER = LoggerFactory.getLogger(ResultStoreCleaner.class);
   private static final int TIMEOUT_MS = 3000;
-  private static final String QUERY_RESULT_STORE = "%s://%s:%d/stp/resultStore";
-  private static final String DELETE_QUERY_RESULT = "%s://%s:%d/stp/resultStore/%s";
+  private static final String QUERY_RESULT_STORE = "%s://%s:%d/resultStore";
+  private static final String DELETE_QUERY_RESULT = "%s://%s:%d/resultStore/%s";
   public static final String CLEAN_AT_TIME = "result.store.cleaner.clean.at.ms";
   private final ControllerConf _controllerConf;
   private final Executor _executor;

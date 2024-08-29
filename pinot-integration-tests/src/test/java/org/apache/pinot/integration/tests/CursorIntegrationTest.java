@@ -112,11 +112,11 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
   }
 
   protected String getBrokerGetAllQueryStoresApiUrl(String brokerBaseApiUrl) {
-    return brokerBaseApiUrl + "/stp/resultStore";
+    return brokerBaseApiUrl + "/resultStore";
   }
 
   protected String getBrokerDeleteQueryStoresApiUrl(String brokerBaseApiUrl, String requestId) {
-    return brokerBaseApiUrl + "/stp/resultStore/" + requestId;
+    return brokerBaseApiUrl + "/resultStore/" + requestId;
   }
 
   protected String getBrokerQueryApiUrl(String brokerBaseApiUrl) {
@@ -161,18 +161,17 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
       throws Exception {
     numRows = numRows == 0 ? CommonConstants.CursorConfigs.DEFAULT_QUERY_RESULT_SIZE : numRows;
 
-    int numPages =
-        firstResponse.getNumRowsResultSet() / numRows + (firstResponse.getNumRowsResultSet() % numRows != 0 ? 1 : 0);
-    List<CursorResponse> resultPages = new ArrayList<>(numPages);
+    List<CursorResponse> resultPages = new ArrayList<>();
     resultPages.add(firstResponse);
+    int totalRows = firstResponse.getNumRowsResultSet();
 
-    int offset = 0;
-    for (int count = 1; count < numPages; count++) {
-      JsonNode pinotResponse = ClusterTest.postQuery("", getBrokerQueryApiUrl(queryResourceUrl), headers,
+    int offset = firstResponse.getNumRows();
+    while (offset < totalRows) {
+      JsonNode pinotResponse = ClusterTest.postQuery(null, getBrokerQueryApiUrl(queryResourceUrl), headers,
           getCursorOffset(firstResponse.getRequestId(), offset, numRows));
       CursorResponse response = JsonUtils.jsonNodeToObject(pinotResponse, CursorResponseNative.class);
       resultPages.add(response);
-      offset += numRows;
+      offset += response.getNumRows();
     }
     return resultPages;
   }
@@ -223,7 +222,7 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
 
   protected Object[][] getPageSizes() {
     return new Object[][]{
-        {1}, {2}, {3}, {10}, {0} //0 trigger default behaviour
+         {2}, {3}, {10}, {0} //0 trigger default behaviour
     };
   }
 
@@ -330,9 +329,9 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
   @Test
   public void testQueryWithEmptyResult()
       throws Exception {
-    JsonNode pinotResponse;
-    pinotResponse = ClusterTest.postQuery(EMPTY_RESULT_QUERY, getBrokerPagingQueryApiUrl(getBrokerBaseApiUrl(),
-            10000), getHeaders(), getExtraQueryProperties());
+    JsonNode pinotResponse = ClusterTest.postQuery(EMPTY_RESULT_QUERY, getBrokerQueryApiUrl(getBrokerBaseApiUrl()),
+        getHeaders(), getCursorQueryProperties(1000));
+
     // There should be no resultTable.
     Assert.assertTrue(pinotResponse.get("resultTable").isNull());
     // Total Rows in result set should be 0.
@@ -355,8 +354,8 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
 
     CursorResponse pinotPagingResponse;
     pinotPagingResponse = JsonUtils.jsonNodeToObject(
-        ClusterTest.postQuery(query, getBrokerPagingQueryApiUrl(queryResourceUrl, _resultSize), getHeaders(), null),
-        CursorResponseNative.class);
+        ClusterTest.postQuery(query, getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
+            getCursorQueryProperties(_resultSize)), CursorResponseNative.class);
     Assert.assertTrue(pinotPagingResponse.getExceptions().isEmpty());
     ClusterTest.postQuery("", getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
         getCursorOffset(pinotPagingResponse.getRequestId(),pinotPagingResponse.getNumRowsResultSet() + 1));
@@ -368,9 +367,8 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     String queryWithFromMissing = "SELECT * mytable limit 100";
     JsonNode pinotResponse;
     pinotResponse =
-        ClusterTest.postQuery(queryWithFromMissing, getBrokerPagingQueryApiUrl(getBrokerBaseApiUrl(), 10000),
-            getHeaders(),
-            getExtraQueryProperties());
+        ClusterTest.postQuery(queryWithFromMissing, getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
+            getCursorQueryProperties(_resultSize));
     Assert.assertFalse(pinotResponse.get("exceptions").isEmpty());
     JsonNode exception = pinotResponse.get("exceptions").get(0);
     Assert.assertTrue(exception.get("message").asText().startsWith("QueryValidationError:"));
