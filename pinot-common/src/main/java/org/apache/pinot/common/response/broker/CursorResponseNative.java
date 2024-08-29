@@ -20,7 +20,7 @@ public class CursorResponseNative implements CursorResponse {
   private final String _brokerId;
   private final String _brokerHost;
   private final int _brokerPort;
-  private ResultSet _resultSet;
+  private ResultTable _resultTable;
   private final int _numRowsResultSet;
   private final int _offset;
   private final int _numRows;
@@ -28,26 +28,12 @@ public class CursorResponseNative implements CursorResponse {
   private long _cursorResultWriteTimeMs;
   private final long _cursorFetchTimeMs;
 
-  public CursorResponseNative(QueryProcessingException exception) {
-    _requestId = "NA";
-    _brokerId = "NA";
-    _brokerHost = "NA";
-    _brokerPort = -1;
-    _resultSet = null;
-    _numRowsResultSet = 0;
-    _offset = 0;
-    _numRows = 0;
-    _processingExceptions = List.of(exception);
-    _cursorResultWriteTimeMs = -1;
-    _cursorFetchTimeMs = -1;
-  }
-
   public CursorResponseNative(String brokerId, List<? extends QueryException> exceptions) {
-    _requestId = "NA";
+    _requestId = null;
     _brokerId = brokerId;
-    _brokerHost = "NA";
+    _brokerHost = null;
     _brokerPort = -1;
-    _resultSet = null;
+    _resultTable = null;
     _numRowsResultSet = 0;
     _offset = 0;
     _numRows = 0;
@@ -59,7 +45,7 @@ public class CursorResponseNative implements CursorResponse {
   @JsonCreator
   public CursorResponseNative(@JsonProperty("requestId") String requestId, @JsonProperty("brokerId") String brokerId,
       @JsonProperty("brokerHost") String brokerHost, @JsonProperty("brokerPort") int brokerPort,
-      @JsonProperty("resultTable") ResultSet resultSet, @JsonProperty("numRowsResultSet") int numRowsResultSet,
+      @JsonProperty("resultTable") ResultTable resultTable, @JsonProperty("numRowsResultSet") int numRowsResultSet,
       @JsonProperty("offset") int offset, @JsonProperty("numRows") int numRows,
       @JsonProperty("exceptions") List<QueryProcessingException> exceptions,
       @JsonProperty("cursorResultWriteTimeMs") long cursorResultWriteTimeMs,
@@ -68,7 +54,7 @@ public class CursorResponseNative implements CursorResponse {
     _brokerId = brokerId;
     _brokerHost = brokerHost;
     _brokerPort = brokerPort;
-    _resultSet = resultSet;
+    _resultTable = resultTable;
     _numRowsResultSet = numRowsResultSet;
     _offset = offset;
     _numRows = numRows;
@@ -98,14 +84,23 @@ public class CursorResponseNative implements CursorResponse {
   }
 
   @Override
-  @JsonProperty("resultTable")
+  @JsonIgnore
   public ResultSet getResultSet() {
-    return _resultSet;
+    return _resultTable;
   }
 
   @Override
   public void setResultSet(@Nullable ResultSet resultSet) {
-    _resultSet = resultSet;
+    _resultTable = (ResultTable) resultSet;
+  }
+
+  @JsonProperty("resultTable")
+  public ResultTable getResultTable() {
+    return _resultTable;
+  }
+
+  public void setResultTable(@Nullable ResultTable resultTable) {
+    _resultTable = resultTable;
   }
 
   @Override

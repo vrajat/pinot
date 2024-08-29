@@ -1227,11 +1227,14 @@ public class CommonConstants {
   }
 
   public static class CursorConfigs {
+    public static final String DEFAULT_RESULT_STORE_TYPE = "memory";
     public static final int MAX_QUERY_RESULT_SIZE = 100000;
     public static final int DEFAULT_QUERY_RESULT_SIZE = 10000;
     public static final String DEFAULT_TEMP_DIR = "/tmp/pinot/query/broker/";
     public static final String DEFAULT_RESULTS_EXPIRATION_INTERVAL = "1h"; // 1 hour.
     public static final String PREFIX_OF_CONFIG_OF_CURSOR = "pinot.broker.cursor";
+    public static final String PREFIX_OF_CONFIG_OF_RESULT_STORE = "pinot.broker.cursor.result.store";
+    public static final String RESULT_STORE_TYPE = "type";
     public static final String QUERY_RESULT_SIZE = "result.size";
     public static final String TEMP_DIR = "temp.dir";
     public static final String DATA_DIR = "data.dir";

@@ -1,7 +1,6 @@
 package org.apache.pinot.integration.tests;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.base.Splitter;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -11,13 +10,13 @@ import java.util.Map;
 import java.util.Properties;
 import javax.annotation.Nullable;
 import org.apache.pinot.common.exception.HttpErrorStatusException;
-import org.apache.pinot.spi.cursors.CursorResponse;
 import org.apache.pinot.common.response.broker.CursorResponseNative;
 import org.apache.pinot.common.restlet.resources.ResultResponse;
 import org.apache.pinot.common.utils.config.TagNameUtils;
 import org.apache.pinot.controller.ControllerConf;
 import org.apache.pinot.controller.cursors.ResultStoreCleaner;
 import org.apache.pinot.spi.config.table.TableConfig;
+import org.apache.pinot.spi.cursors.CursorResponse;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.utils.CommonConstants;
@@ -70,7 +69,7 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
   protected void overrideBrokerConf(PinotConfiguration configuration) {
     configuration.setProperty(CommonConstants.Broker.CONFIG_OF_BROKER_INSTANCE_TAGS,
         TagNameUtils.getBrokerTagForTenant(TENANT_NAME));
-    configuration.setProperty(CommonConstants.CursorConfigs.PREFIX_OF_CONFIG_OF_CURSOR + ".protocol",
+    configuration.setProperty(CommonConstants.CursorConfigs.PREFIX_OF_CONFIG_OF_RESULT_STORE + ".type",
         "memory");
   }
 
@@ -130,21 +129,19 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
             CommonConstants.Broker.Request.QueryOptionKey.GET_CURSOR_NUM_ROWS, numRows));
   }
 
-  protected Map<String, String> getCursorOffset(String requestId, String nextOffsetParams) {
-    Map<String, String> params = Splitter.on('&').omitEmptyStrings().trimResults().withKeyValueSeparator('=')
-        .split(nextOffsetParams);
-    Map<String, String> options = new java.util.HashMap<>(Map.of(CommonConstants.Broker.Request.QUERY_OPTIONS,
-        String.format("%s=%s;%s=%s", CommonConstants.Broker.Request.QueryOptionKey.CURSOR_REQUEST_ID, requestId,
-            CommonConstants.Broker.Request.QueryOptionKey.CURSOR_OFFSET, params.get("offset"))));
+  protected Map<String, String> getCursorOffset(String requestId, int offset) {
+    return new java.util.HashMap<>(Map.of(CommonConstants.Broker.Request.QUERY_OPTIONS,
+        String.format("%s=%s;%s=%s;%s=%s", CommonConstants.Broker.Request.QueryOptionKey.GET_CURSOR, "true",
+            CommonConstants.Broker.Request.QueryOptionKey.CURSOR_REQUEST_ID, requestId,
+            CommonConstants.Broker.Request.QueryOptionKey.CURSOR_OFFSET, offset)));
+  }
 
-    if (params.containsKey("numRows")) {
-      options.put(CommonConstants.Broker.Request.QUERY_OPTIONS,
-          String.format("%s;%s=%s", options.get(CommonConstants.Broker.Request.QUERY_OPTIONS),
-              CommonConstants.Broker.Request.QueryOptionKey.GET_CURSOR_NUM_ROWS, params.get("numRows"))
-          );
-    }
-
-    return options;
+  protected Map<String, String> getCursorOffset(String requestId, int offset, int numRows) {
+    return new java.util.HashMap<>(Map.of(CommonConstants.Broker.Request.QUERY_OPTIONS,
+        String.format("%s=%s;%s=%s;%s=%d;%s=%d", CommonConstants.Broker.Request.QueryOptionKey.GET_CURSOR, "true",
+            CommonConstants.Broker.Request.QueryOptionKey.CURSOR_REQUEST_ID, requestId,
+            CommonConstants.Broker.Request.QueryOptionKey.CURSOR_OFFSET, offset,
+            CommonConstants.Broker.Request.QueryOptionKey.GET_CURSOR_NUM_ROWS, numRows)));
   }
 
   protected void startHybridCluster()
@@ -172,7 +169,7 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     int offset = 0;
     for (int count = 1; count < numPages; count++) {
       JsonNode pinotResponse = ClusterTest.postQuery("", getBrokerQueryApiUrl(queryResourceUrl), headers,
-          getCursorOffset(firstResponse.getRequestId(), String.format("offset=%d&numRows=%d", offset, numRows)));
+          getCursorOffset(firstResponse.getRequestId(), offset, numRows));
       CursorResponse response = JsonUtils.jsonNodeToObject(pinotResponse, CursorResponseNative.class);
       resultPages.add(response);
       offset += numRows;
@@ -266,10 +263,10 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     Assert.assertTrue(pinotPagingResponse.getCursorResultWriteTimeMs() >= 0);
 
     int totalRows = pinotPagingResponse.getNumRowsResultSet();
-    int offset = 0;
+    int offset = pinotPagingResponse.getNumRows();
     while (offset < totalRows) {
-      JsonNode pinotResponse = ClusterTest.postQuery("", getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
-          getCursorOffset(requestId, String.format("offset=%d&numRows=%d", offset, _resultSize)));
+      JsonNode pinotResponse = ClusterTest.postQuery(null, getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
+          getCursorOffset(requestId, offset, _resultSize));
       pinotPagingResponse = JsonUtils.jsonNodeToObject(pinotResponse, CursorResponseNative.class);
 
       Assert.assertFalse(pinotPagingResponse.getBrokerHost().isEmpty());
@@ -311,7 +308,7 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
   public void testBadGet() throws Exception {
     try {
       ClusterTest.postQuery("", getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
-          getCursorOffset("dummy", "offset=0"));
+          getCursorOffset("dummy", 0));
     } catch (IOException e) {
       HttpErrorStatusException h = (HttpErrorStatusException) e.getCause();
       Assert.assertEquals(h.getStatusCode(), 404);
@@ -362,8 +359,7 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
         CursorResponseNative.class);
     Assert.assertTrue(pinotPagingResponse.getExceptions().isEmpty());
     ClusterTest.postQuery("", getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
-        getCursorOffset(pinotPagingResponse.getRequestId(),
-            "offset=" + (pinotPagingResponse.getNumRowsResultSet() + 1)));
+        getCursorOffset(pinotPagingResponse.getRequestId(),pinotPagingResponse.getNumRowsResultSet() + 1));
   }
 
   @Test

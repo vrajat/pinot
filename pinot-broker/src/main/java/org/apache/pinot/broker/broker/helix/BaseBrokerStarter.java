@@ -41,8 +41,6 @@ import org.apache.helix.store.zk.ZkHelixPropertyStore;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.broker.broker.AccessControlFactory;
 import org.apache.pinot.broker.broker.BrokerAdminApiApplication;
-import org.apache.pinot.spi.cursors.ResultStore;
-import org.apache.pinot.broker.cursors.ResultStoreFactory;
 import org.apache.pinot.broker.cursors.memory.MemoryResultStore;
 import org.apache.pinot.broker.queryquota.HelixExternalViewBasedQueryQuotaManager;
 import org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler;
@@ -76,6 +74,9 @@ import org.apache.pinot.core.transport.ListenerConfig;
 import org.apache.pinot.core.transport.server.routing.stats.ServerRoutingStatsManager;
 import org.apache.pinot.core.util.ListenerConfigUtil;
 import org.apache.pinot.spi.accounting.ThreadResourceUsageProvider;
+import org.apache.pinot.spi.cursors.ResultStore;
+import org.apache.pinot.spi.cursors.ResultStoreFactory;
+import org.apache.pinot.spi.cursors.ResultStoreService;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.eventlistener.query.BrokerQueryEventListenerFactory;
 import org.apache.pinot.spi.filesystem.PinotFSFactory;
@@ -348,11 +349,14 @@ public abstract class BaseBrokerStarter implements ServiceStartable {
     LOGGER.info("Initializing PinotFSFactory");
     PinotFSFactory.init(_brokerConf.subset(CommonConstants.Broker.PREFIX_OF_CONFIG_OF_PINOT_FS_FACTORY));
 
-    LOGGER.info("Initialize PaginationStore");
+    LOGGER.info("Initialize ResultStore");
     PinotConfiguration resultStoreConfiguration =
-        _brokerConf.subset(CommonConstants.CursorConfigs.PREFIX_OF_CONFIG_OF_CURSOR);
+        _brokerConf.subset(CommonConstants.CursorConfigs.PREFIX_OF_CONFIG_OF_RESULT_STORE);
     try {
-      _resultStore = ResultStoreFactory.create(resultStoreConfiguration);
+      ResultStoreFactory resultStoreFactory = ResultStoreService.getInstance().getResultStoreFactory(
+          resultStoreConfiguration.getProperty(CommonConstants.CursorConfigs.RESULT_STORE_TYPE,
+              CommonConstants.CursorConfigs.DEFAULT_RESULT_STORE_TYPE));
+      _resultStore = resultStoreFactory.create(resultStoreConfiguration);
     } catch (Exception e) {
       LOGGER.error("Exception when create Cursor ResultStore. Creating default result store. {}", e.getMessage());
       _resultStore = new MemoryResultStore();

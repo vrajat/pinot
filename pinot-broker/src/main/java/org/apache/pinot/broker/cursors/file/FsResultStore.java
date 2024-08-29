@@ -8,7 +8,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import org.apache.pinot.common.cursors.fs.FsMetadata;
 import org.apache.pinot.spi.cursors.QueryStore;
 import org.apache.pinot.spi.cursors.ResultMetadata;
 import org.apache.pinot.spi.cursors.ResultStore;
