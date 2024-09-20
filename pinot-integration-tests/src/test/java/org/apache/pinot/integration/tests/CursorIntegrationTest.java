@@ -358,7 +358,7 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
             getCursorQueryProperties(_resultSize)), CursorResponseNative.class);
     Assert.assertTrue(pinotPagingResponse.getExceptions().isEmpty());
     ClusterTest.postQuery("", getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
-        getCursorOffset(pinotPagingResponse.getRequestId(),pinotPagingResponse.getNumRowsResultSet() + 1));
+        getCursorOffset(pinotPagingResponse.getRequestId(), pinotPagingResponse.getNumRowsResultSet() + 1));
   }
 
   @Test
