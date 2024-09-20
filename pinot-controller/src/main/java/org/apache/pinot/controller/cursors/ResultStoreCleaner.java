@@ -3,6 +3,7 @@ package org.apache.pinot.controller.cursors;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,8 +21,6 @@ import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.helix.model.InstanceConfig;
-import org.apache.pinot.common.auth.AuthProviderUtils;
-import org.apache.pinot.spi.cursors.ResultMetadata;
 import org.apache.pinot.common.http.MultiHttpRequest;
 import org.apache.pinot.common.http.MultiHttpRequestResponse;
 import org.apache.pinot.common.metrics.ControllerMetrics;
@@ -31,7 +30,7 @@ import org.apache.pinot.controller.LeadControllerManager;
 import org.apache.pinot.controller.api.resources.InstanceInfo;
 import org.apache.pinot.controller.helix.core.PinotHelixResourceManager;
 import org.apache.pinot.controller.helix.core.periodictask.ControllerPeriodicTask;
-import org.apache.pinot.spi.auth.AuthProvider;
+import org.apache.pinot.spi.cursors.ResultMetadata;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.JsonUtils;
 import org.apache.pinot.spi.utils.TimeUtils;
@@ -48,17 +47,15 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
   private final ControllerConf _controllerConf;
   private final Executor _executor;
   private final PoolingHttpClientConnectionManager _connectionManager;
-  private final AuthProvider _authProvider;
 
   public ResultStoreCleaner(ControllerConf config, PinotHelixResourceManager pinotHelixResourceManager,
       LeadControllerManager leadControllerManager, ControllerMetrics controllerMetrics, Executor executor,
-      PoolingHttpClientConnectionManager connectionManager, AuthProvider authProvider) {
+      PoolingHttpClientConnectionManager connectionManager) {
     super("ResultStoreCleaner", getFrequencyInSeconds(config), getInitialDelayInSeconds(config),
         pinotHelixResourceManager, leadControllerManager, controllerMetrics);
     _controllerConf = config;
     _executor = executor;
     _connectionManager = connectionManager;
-    _authProvider = authProvider;
   }
 
   private static long getInitialDelayInSeconds(ControllerConf config) {
@@ -101,9 +98,7 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
             x -> new InstanceInfo(x.getInstanceName(), x.getHostName(), Integer.parseInt(x.getPort()))));
 
     try {
-      Map<String, String> requestHeaders = AuthProviderUtils.makeAuthHeadersMap(_authProvider);
-
-      Map<String, ResultResponse> brokerResponses = getAllQueryResults(brokers, requestHeaders);
+      Map<String, ResultResponse> brokerResponses = getAllQueryResults(brokers, Collections.emptyMap());
 
       String protocol = _controllerConf.getControllerBrokerProtocol();
       int portOverride = _controllerConf.getControllerBrokerPortOverride();
@@ -118,7 +113,7 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
                 String.format(DELETE_QUERY_RESULT, protocol, broker.getHost(), port, metadata.getRequestId()));
           }
         }
-        Map<String, String> responses = getResponseMap(requestHeaders, brokerUrls, "DELETE", HttpDelete::new);
+        Map<String, String> responses = getResponseMap(Collections.emptyMap(), brokerUrls, "DELETE", HttpDelete::new);
 
         responses.forEach((key, value) -> LOGGER.info(
             String.format("ResultStore delete response - Broker: %s. Response: %s", key, value)));
