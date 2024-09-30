@@ -1,7 +1,23 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.pinot.broker.api.resources;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiKeyAuthDefinition;
 import io.swagger.annotations.ApiOperation;
@@ -11,9 +27,7 @@ import io.swagger.annotations.ApiResponses;
 import io.swagger.annotations.Authorization;
 import io.swagger.annotations.SecurityDefinition;
 import io.swagger.annotations.SwaggerDefinition;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -25,15 +39,15 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.apache.pinot.common.cursors.AbstractResultStore;
 import org.apache.pinot.common.metrics.BrokerMeter;
 import org.apache.pinot.common.metrics.BrokerMetrics;
+import org.apache.pinot.common.response.BrokerResponse;
+import org.apache.pinot.common.response.CursorResponse;
 import org.apache.pinot.core.auth.Actions;
 import org.apache.pinot.core.auth.Authorize;
 import org.apache.pinot.core.auth.ManualAuthorization;
 import org.apache.pinot.core.auth.TargetType;
-import org.apache.pinot.spi.cursors.QueryStore;
-import org.apache.pinot.spi.cursors.ResultMetadata;
-import org.apache.pinot.spi.cursors.ResultStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,22 +66,21 @@ public class ResultStoreResource {
   private BrokerMetrics _brokerMetrics;
 
   @Inject
-  private ResultStore _resultStore;
+  private AbstractResultStore _resultStore;
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  @Path("{requestId}/metadata")
-  @ApiOperation(value = "ResultStore metadata for a query")
+  @Path("{requestId}")
+  @ApiOperation(value = "Response without ResultTable for a requestId")
   @ApiResponses(value = {
       @ApiResponse(code = 200, message = "Query response"), @ApiResponse(code = 500, message = "Internal Server Error")
   })
   @ManualAuthorization
-  public JsonNode getSqlQueryMetadata(
+  public BrokerResponse getSqlQueryMetadata(
       @ApiParam(value = "Request ID of the query", required = true) @PathParam("requestId") String requestId) {
     try {
-      QueryStore queryStore = _resultStore.getQueryStore(requestId);
-      if (queryStore != null) {
-        return queryStore.getQueryResponseMetadata();
+      if (_resultStore.exists(requestId)) {
+        return _resultStore.readResponse(requestId);
       } else {
         throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
             .entity(String.format("Query results for %s not found.", requestId)).build());
@@ -82,33 +95,15 @@ public class ResultStoreResource {
     }
   }
 
-  public static class ResultResponse {
-    private final List<ResultMetadata> _resultMetadataList;
-
-    public ResultResponse(@JsonProperty("resultMetadataList") List<ResultMetadata> resultMetadataList) {
-      _resultMetadataList = resultMetadataList;
-    }
-
-    @JsonProperty("resultMetadataList")
-    public List<ResultMetadata> getResultMetadataList() {
-      return _resultMetadataList;
-    }
-  }
-
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/")
   @Authorize(targetType = TargetType.CLUSTER, action = Actions.Cluster.GET_RESULT_STORE)
-  @ApiOperation(value = "Get metadata of all query stores in the result store", notes = "Get metadata of all "
+  @ApiOperation(value = "Get requestIds of all responses in the result store.", notes = "Get requestIds of all "
       + "query stores in the result store")
-  public ResultResponse getResults(@Context HttpHeaders headers) {
+  public Collection<CursorResponse> getResults(@Context HttpHeaders headers) {
     try {
-      Collection<? extends QueryStore> queryStores = _resultStore.getAllQueryStores();
-      List<ResultMetadata> metadataList = new ArrayList<>(queryStores.size());
-      for (QueryStore queryStore : queryStores) {
-        metadataList.add(queryStore.getResultMetadata());
-      }
-      return new ResultResponse(metadataList);
+      return _resultStore.getAllStoredResponses();
     } catch (Exception e) {
       throw new WebApplicationException(e,
           Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build());
@@ -119,13 +114,12 @@ public class ResultStoreResource {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{requestId}")
   @Authorize(targetType = TargetType.CLUSTER, action = Actions.Cluster.DELETE_RESULT_STORE)
-  @ApiOperation(value = "Delete a query store in the result store", notes = "Delete a query store in the result store")
+  @ApiOperation(value = "Delete a response in the result store", notes = "Delete a response in the result store")
   public String deleteResult(
       @ApiParam(value = "Request ID of the query", required = true) @PathParam("requestId") String requestId,
       @Context HttpHeaders headers) {
     try {
-      QueryStore queryStore = _resultStore.deleteQueryStore(requestId);
-      if (queryStore != null) {
+      if (_resultStore.deleteResponse(requestId)) {
         return "Query Results for " + requestId + " deleted.";
       }
     } catch (Exception e) {

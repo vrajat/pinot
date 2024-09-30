@@ -1,3 +1,21 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.pinot.spi.cursors;
 
 import java.util.Collection;
@@ -29,40 +47,33 @@ public interface ResultStore {
    * Initialize the store.
    * @param config Configuration of the store.
    */
-  void init(PinotConfiguration config)
+  void init(PinotConfiguration config, ResponseSerde responseSerde)
       throws Exception;
 
   /**
-   * Initialize and store a QueryStore for a specific query request ID.
-   * @param metadata  ResultMetadata object that captures all the information about the query request and results.
+   * Checks if the response for a requestId exists.
+   * @param requestId The ID of the request
+   * @return True if response exists else false
+   * @throws Exception Thrown if an error occurs when checking if the response exists.
    */
-  QueryStore initQueryStore(ResultMetadata metadata)
-      throws Exception;
-
-  /**
-   * Get a QueryStore for a specific query
-   * @param requestId Query ID of the query
-   * @return A QueryStore object.
-   * @throws Exception
-   */
-  QueryStore getQueryStore(String requestId)
-      throws Exception;
+  boolean exists(String requestId)
+    throws Exception;
 
   /**
    * Get All Query Stores.
    *
    * @return List of QueryStore objects
    */
-  Collection<? extends QueryStore> getAllQueryStores()
+  Collection<String> getAllStoredRequestIds()
       throws Exception;
 
   /**
    * Delete a QueryStore for a query id.
    *
    * @param requestId Query id of the query.
-   * @return The deleted QueryStore
-   * @throws Exception
+   * @return True if response was found and deleted.
+   * @throws Exception Exception is thrown if response cannot be deleted by result store.
    */
-  QueryStore deleteQueryStore(String requestId)
+  boolean deleteResponse(String requestId)
       throws Exception;
 }

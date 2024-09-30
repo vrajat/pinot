@@ -1,6 +1,25 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.pinot.controller.cursors;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,13 +43,13 @@ import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.http.MultiHttpRequest;
 import org.apache.pinot.common.http.MultiHttpRequestResponse;
 import org.apache.pinot.common.metrics.ControllerMetrics;
-import org.apache.pinot.common.restlet.resources.ResultResponse;
+import org.apache.pinot.common.response.CursorResponse;
+import org.apache.pinot.common.response.broker.CursorResponseNative;
 import org.apache.pinot.controller.ControllerConf;
 import org.apache.pinot.controller.LeadControllerManager;
 import org.apache.pinot.controller.api.resources.InstanceInfo;
 import org.apache.pinot.controller.helix.core.PinotHelixResourceManager;
 import org.apache.pinot.controller.helix.core.periodictask.ControllerPeriodicTask;
-import org.apache.pinot.spi.cursors.ResultMetadata;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.JsonUtils;
 import org.apache.pinot.spi.utils.TimeUtils;
@@ -98,19 +117,19 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
             x -> new InstanceInfo(x.getInstanceName(), x.getHostName(), Integer.parseInt(x.getPort()))));
 
     try {
-      Map<String, ResultResponse> brokerResponses = getAllQueryResults(brokers, Collections.emptyMap());
+      Map<String, List<CursorResponseNative>> brokerResponses = getAllQueryResults(brokers, Collections.emptyMap());
 
       String protocol = _controllerConf.getControllerBrokerProtocol();
       int portOverride = _controllerConf.getControllerBrokerPortOverride();
 
       List<String> brokerUrls = new ArrayList<>();
-      for (Map.Entry<String, ResultResponse> entry : brokerResponses.entrySet()) {
-        for (ResultMetadata metadata : entry.getValue().getResultMetadataList()) {
-          if (metadata.getExpirationTimeMs() <= currentTime) {
+      for (Map.Entry<String, List<CursorResponseNative>> entry : brokerResponses.entrySet()) {
+        for (CursorResponse response : entry.getValue()) {
+          if (response.getExpirationTimeMs() <= currentTime) {
             InstanceInfo broker = brokers.get(entry.getKey());
             int port = portOverride > 0 ? portOverride : broker.getPort();
             brokerUrls.add(
-                String.format(DELETE_QUERY_RESULT, protocol, broker.getHost(), port, metadata.getRequestId()));
+                String.format(DELETE_QUERY_RESULT, protocol, broker.getHost(), port, response.getRequestId()));
           }
         }
         Map<String, String> responses = getResponseMap(Collections.emptyMap(), brokerUrls, "DELETE", HttpDelete::new);
@@ -123,7 +142,7 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
     }
   }
 
-  private Map<String, ResultResponse> getAllQueryResults(Map<String, InstanceInfo> brokers,
+  private Map<String, List<CursorResponseNative>> getAllQueryResults(Map<String, InstanceInfo> brokers,
       Map<String, String> requestHeaders)
       throws Exception {
     String protocol = _controllerConf.getControllerBrokerProtocol();
@@ -137,8 +156,9 @@ public class ResultStoreCleaner extends ControllerPeriodicTask<Void> {
     Map<String, String> strResponseMap = getResponseMap(requestHeaders, brokerUrls, "GET", HttpGet::new);
     return strResponseMap.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> {
       try {
-        return JsonUtils.stringToObject(e.getValue(), ResultResponse.class);
-      } catch (JsonProcessingException ex) {
+        return JsonUtils.stringToObject(e.getValue(), new TypeReference<>() {
+        });
+      } catch (IOException ex) {
         throw new RuntimeException(ex);
       }
     }));

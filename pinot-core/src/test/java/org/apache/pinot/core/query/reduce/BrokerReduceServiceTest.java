@@ -26,7 +26,8 @@ import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.exception.QueryException;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.request.BrokerRequest;
-import org.apache.pinot.common.response.broker.BrokerResponseNative;
+import org.apache.pinot.common.response.BrokerResponse;
+import org.apache.pinot.common.response.broker.QueryProcessingException;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataSchema.ColumnDataType;
 import org.apache.pinot.core.common.datatable.DataTableBuilder;
@@ -69,12 +70,12 @@ public class BrokerReduceServiceTest {
       dataTableMap.put(instance, dataTable);
     }
     long reduceTimeoutMs = 1;
-    BrokerResponseNative brokerResponse =
+    BrokerResponse brokerResponse =
         brokerReduceService.reduceOnDataTable(brokerRequest, brokerRequest, dataTableMap, reduceTimeoutMs,
             mock(BrokerMetrics.class));
     brokerReduceService.shutDown();
 
-    List<? extends org.apache.pinot.spi.query.QueryException> exceptions = brokerResponse.getExceptions();
+    List<QueryProcessingException> exceptions = brokerResponse.getExceptions();
     assertEquals(exceptions.size(), 1);
     assertEquals(exceptions.get(0).getErrorCode(), QueryException.BROKER_TIMEOUT_ERROR_CODE);
   }

@@ -16,12 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.pinot.spi.cursors;
+package org.apache.pinot.broker.cursors;
 
-import org.apache.pinot.spi.env.PinotConfiguration;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import org.apache.pinot.common.cursors.AbstractResponseSerde;
+import org.apache.pinot.spi.utils.JsonUtils;
 
 
-public interface ResultStoreFactory {
-  String getType();
-  ResultStore create(PinotConfiguration configuration);
+
+public class JsonResponseSerde extends AbstractResponseSerde {
+  private static final String EXTENSION = "json";
+
+  JsonResponseSerde() {
+  }
+
+  @Override
+  public void serialize(OutputStream stream, Object object)
+      throws IOException {
+    JsonUtils.objectToOutputStream(object, stream);
+  }
+
+  @Override
+  public <T> T deserialize(InputStream stream, Class<T> valueType)
+      throws IOException {
+    return JsonUtils.inputStreamToObject(stream, valueType);
+  }
+
+  @Override
+  public String getFileExtension() {
+    return EXTENSION;
+  }
 }

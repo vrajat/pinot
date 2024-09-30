@@ -16,12 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.pinot.spi.cursors;
+package org.apache.pinot.common.cursors;
 
-import org.apache.pinot.spi.env.PinotConfiguration;
+import java.io.IOException;
+import java.io.InputStream;
+import org.apache.pinot.spi.cursors.ResponseSerde;
 
 
-public interface ResultStoreFactory {
-  String getType();
-  ResultStore create(PinotConfiguration configuration);
+public abstract class AbstractResponseSerde implements ResponseSerde {
+  public abstract <T> T deserialize(InputStream stream, Class<T> valueType)
+      throws IOException;
 }

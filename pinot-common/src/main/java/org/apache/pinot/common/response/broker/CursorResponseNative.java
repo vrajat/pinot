@@ -1,76 +1,54 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.pinot.common.response.broker;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import java.util.List;
-import javax.annotation.Nullable;
-import org.apache.pinot.spi.cursors.CursorResponse;
-import org.apache.pinot.spi.query.QueryException;
-import org.apache.pinot.spi.query.ResultSet;
+import org.apache.pinot.common.response.CursorResponse;
 
 
 @JsonPropertyOrder({
-    "resultTable", "requestId", "brokerId", "numRowsResultSet", "offset", "offset",
-    "cursorResultWriteTimeMs", "cursorResultWriteTimeMs"
+    "resultTable", "numRowsResultSet", "partialResult", "exceptions", "numGroupsLimitReached", "timeUsedMs",
+    "requestId", "brokerId", "numDocsScanned", "totalDocs", "numEntriesScannedInFilter", "numEntriesScannedPostFilter",
+    "numServersQueried", "numServersResponded", "numSegmentsQueried", "numSegmentsProcessed", "numSegmentsMatched",
+    "numConsumingSegmentsQueried", "numConsumingSegmentsProcessed", "numConsumingSegmentsMatched",
+    "minConsumingFreshnessTimeMs", "numSegmentsPrunedByBroker", "numSegmentsPrunedByServer",
+    "numSegmentsPrunedInvalid", "numSegmentsPrunedByLimit", "numSegmentsPrunedByValue", "brokerReduceTimeMs",
+    "offlineThreadCpuTimeNs", "realtimeThreadCpuTimeNs", "offlineSystemActivitiesCpuTimeNs",
+    "realtimeSystemActivitiesCpuTimeNs", "offlineResponseSerializationCpuTimeNs",
+    "realtimeResponseSerializationCpuTimeNs", "offlineTotalCpuTimeNs", "realtimeTotalCpuTimeNs",
+    "explainPlanNumEmptyFilterSegments", "explainPlanNumMatchAllFilterSegments", "traceInfo",
+    // Fields specific to CursorResponse
+    "offset", "numRows", "cursorResultWriteTimeMs", "cursorResultWriteTimeMs", "submissionTimeMs", "expirationTimeMs",
+    "brokerHost", "brokerPort"
 })
-public class CursorResponseNative implements CursorResponse {
-  private final String _requestId;
-  private final String _brokerId;
-  private final String _brokerHost;
-  private final int _brokerPort;
-  private ResultTable _resultTable;
-  private final int _numRowsResultSet;
-  private final int _offset;
-  private final int _numRows;
-  private final List<? extends QueryException> _processingExceptions;
+public class CursorResponseNative extends BrokerResponseNative implements CursorResponse {
+  private int _offset;
+  private int _numRows;
   private long _cursorResultWriteTimeMs;
-  private final long _cursorFetchTimeMs;
+  private long _cursorFetchTimeMs;
+  private long _submissionTimeMs;
+  private long _expirationTimeMs;
+  private String _brokerHost;
+  private int _brokerPort;
 
-  public CursorResponseNative(String brokerId, List<? extends QueryException> exceptions) {
-    _requestId = null;
-    _brokerId = brokerId;
-    _brokerHost = null;
-    _brokerPort = -1;
-    _resultTable = null;
-    _numRowsResultSet = 0;
-    _offset = 0;
-    _numRows = 0;
-    _processingExceptions = exceptions;
-    _cursorResultWriteTimeMs = -1;
-    _cursorFetchTimeMs = -1;
-  }
-
-  @JsonCreator
-  public CursorResponseNative(@JsonProperty("requestId") String requestId, @JsonProperty("brokerId") String brokerId,
-      @JsonProperty("brokerHost") String brokerHost, @JsonProperty("brokerPort") int brokerPort,
-      @JsonProperty("resultTable") ResultTable resultTable, @JsonProperty("numRowsResultSet") int numRowsResultSet,
-      @JsonProperty("offset") int offset, @JsonProperty("numRows") int numRows,
-      @JsonProperty("exceptions") List<QueryProcessingException> exceptions,
-      @JsonProperty("cursorResultWriteTimeMs") long cursorResultWriteTimeMs,
-      @JsonProperty("cursorFetchTimeMs") long cursorFetchTimeMs) {
-    _requestId = requestId;
-    _brokerId = brokerId;
-    _brokerHost = brokerHost;
-    _brokerPort = brokerPort;
-    _resultTable = resultTable;
-    _numRowsResultSet = numRowsResultSet;
-    _offset = offset;
-    _numRows = numRows;
-    _processingExceptions = exceptions;
-    _cursorResultWriteTimeMs = cursorResultWriteTimeMs;
-    _cursorFetchTimeMs = cursorFetchTimeMs;
-  }
-
-  @Override
-  public String getRequestId() {
-    return _requestId;
-  }
-
-  @Override
-  public String getBrokerId() {
-    return _brokerId;
+  public CursorResponseNative() {
   }
 
   @Override
@@ -79,33 +57,51 @@ public class CursorResponseNative implements CursorResponse {
   }
 
   @Override
+  public void setBrokerHost(String brokerHost) {
+    _brokerHost = brokerHost;
+  }
+
+  @Override
   public int getBrokerPort() {
     return _brokerPort;
   }
 
   @Override
-  @JsonIgnore
-  public ResultSet getResultSet() {
-    return _resultTable;
+  public void setBrokerPort(int brokerPort) {
+    _brokerPort = brokerPort;
   }
 
   @Override
-  public void setResultSet(@Nullable ResultSet resultSet) {
-    _resultTable = (ResultTable) resultSet;
-  }
-
-  @JsonProperty("resultTable")
-  public ResultTable getResultTable() {
-    return _resultTable;
-  }
-
-  public void setResultTable(@Nullable ResultTable resultTable) {
-    _resultTable = resultTable;
+  public void setOffset(int offset) {
+    _offset = offset;
   }
 
   @Override
-  public int getNumRowsResultSet() {
-    return _numRowsResultSet;
+  public void setNumRows(int numRows) {
+    _numRows = numRows;
+  }
+
+  @Override
+  public void setCursorFetchTimeMs(long cursorFetchTimeMs) {
+    _cursorFetchTimeMs = cursorFetchTimeMs;
+  }
+
+  public long getSubmissionTimeMs() {
+    return _submissionTimeMs;
+  }
+
+  @Override
+  public void setSubmissionTimeMs(long submissionTimeMs) {
+    _submissionTimeMs = submissionTimeMs;
+  }
+
+  public long getExpirationTimeMs() {
+    return _expirationTimeMs;
+  }
+
+  @Override
+  public void setExpirationTimeMs(long expirationTimeMs) {
+    _expirationTimeMs = expirationTimeMs;
   }
 
   @Override
@@ -118,23 +114,16 @@ public class CursorResponseNative implements CursorResponse {
     return _numRows;
   }
 
-  @JsonProperty("exceptions")
-  public List<? extends QueryException> getExceptions() {
-    return _processingExceptions;
-  }
-
   @JsonProperty("cursorResultWriteTimeMs")
   public long getCursorResultWriteTimeMs() {
     return _cursorResultWriteTimeMs;
   }
 
-  @JsonIgnore
   @Override
   public void setCursorResultWriteTimeMs(long cursorResultWriteMs) {
     _cursorResultWriteTimeMs = cursorResultWriteMs;
   }
 
-  @JsonProperty("cursorFetchTimeMs")
   public long getCursorFetchTimeMs() {
     return _cursorFetchTimeMs;
   }

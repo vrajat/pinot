@@ -16,12 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.pinot.spi.cursors;
+package org.apache.pinot.integration.tests.cursors;
 
+import com.google.auto.service.AutoService;
+import org.apache.pinot.spi.cursors.ResultStore;
+import org.apache.pinot.spi.cursors.ResultStoreFactory;
 import org.apache.pinot.spi.env.PinotConfiguration;
 
 
-public interface ResultStoreFactory {
-  String getType();
-  ResultStore create(PinotConfiguration configuration);
+@AutoService(ResultStoreFactory.class)
+public class MemoryResultStoreFactory implements ResultStoreFactory {
+  private static final String TYPE = "memory";
+  @Override
+  public String getType() {
+    return TYPE;
+  }
+
+  @Override
+  public ResultStore create(PinotConfiguration configuration) {
+    return new MemoryResultStore();
+  }
 }

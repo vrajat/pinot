@@ -1,5 +1,24 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.pinot.integration.tests;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.File;
 import java.io.IOException;
@@ -10,13 +29,12 @@ import java.util.Map;
 import java.util.Properties;
 import javax.annotation.Nullable;
 import org.apache.pinot.common.exception.HttpErrorStatusException;
+import org.apache.pinot.common.response.CursorResponse;
 import org.apache.pinot.common.response.broker.CursorResponseNative;
-import org.apache.pinot.common.restlet.resources.ResultResponse;
 import org.apache.pinot.common.utils.config.TagNameUtils;
 import org.apache.pinot.controller.ControllerConf;
 import org.apache.pinot.controller.cursors.ResultStoreCleaner;
 import org.apache.pinot.spi.config.table.TableConfig;
-import org.apache.pinot.spi.cursors.CursorResponse;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.utils.CommonConstants;
@@ -113,6 +131,10 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
 
   protected String getBrokerGetAllQueryStoresApiUrl(String brokerBaseApiUrl) {
     return brokerBaseApiUrl + "/resultStore";
+  }
+
+  protected String getBrokerResponseApiUrl(String brokerBaseApiUrl, String requestId) {
+    return brokerBaseApiUrl + "/resultStore/" + requestId;
   }
 
   protected String getBrokerDeleteQueryStoresApiUrl(String brokerBaseApiUrl, String requestId) {
@@ -270,7 +292,6 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
 
       Assert.assertFalse(pinotPagingResponse.getBrokerHost().isEmpty());
       Assert.assertTrue(pinotPagingResponse.getBrokerPort() > 0);
-      Assert.assertEquals(pinotPagingResponse.getCursorResultWriteTimeMs(), -1);
       Assert.assertTrue(pinotPagingResponse.getCursorFetchTimeMs() >= 0);
       offset += _resultSize;
     }
@@ -284,23 +305,25 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     testQuery(TEST_QUERY_ONE);
     testQuery(TEST_QUERY_TWO);
 
-    ResultResponse response = JsonUtils.stringToObject(
+    List<CursorResponseNative> requestIds = JsonUtils.stringToObject(
         ClusterTest.sendGetRequest(getBrokerGetAllQueryStoresApiUrl(getBrokerBaseApiUrl()), getHeaders()),
-        ResultResponse.class);
+        new TypeReference<>() {
+        });
 
-    Assert.assertEquals(response.getResultMetadataList().size(), 2);
+    Assert.assertEquals(requestIds.size(), 2);
 
     // Delete the first one
-    String deleteRequestId = response.getResultMetadataList().get(0).getRequestId();
+    String deleteRequestId = requestIds.get(0).getRequestId();
     ClusterTest.sendDeleteRequest(getBrokerDeleteQueryStoresApiUrl(getBrokerBaseApiUrl(), deleteRequestId),
         getHeaders());
 
-    response = JsonUtils.stringToObject(
+    requestIds = JsonUtils.stringToObject(
         ClusterTest.sendGetRequest(getBrokerGetAllQueryStoresApiUrl(getBrokerBaseApiUrl()), getHeaders()),
-        ResultResponse.class);
+        new TypeReference<>() {
+        });
 
-    Assert.assertEquals(response.getResultMetadataList().size(), 1);
-    Assert.assertNotEquals(response.getResultMetadataList().get(0).getRequestId(), deleteRequestId);
+    Assert.assertEquals(requestIds.size(), 1);
+    Assert.assertNotEquals(requestIds.get(0).getRequestId(), deleteRequestId);
   }
 
   @Test
@@ -333,7 +356,7 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
         getHeaders(), getCursorQueryProperties(1000));
 
     // There should be no resultTable.
-    Assert.assertTrue(pinotResponse.get("resultTable").isNull());
+    Assert.assertNull(pinotResponse.get("resultTable"));
     // Total Rows in result set should be 0.
     Assert.assertEquals(pinotResponse.get("numRowsResultSet").asInt(), 0);
     // Rows in the current response should be 0
@@ -350,14 +373,12 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
       expectedExceptionsMessageRegExp = ".*Offset \\d+ is greater than totalRecords \\d+.*")
   public void testGetInvalidOffset(String query)
       throws Exception {
-    String queryResourceUrl = getBrokerBaseApiUrl();
-
     CursorResponse pinotPagingResponse;
     pinotPagingResponse = JsonUtils.jsonNodeToObject(
         ClusterTest.postQuery(query, getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
             getCursorQueryProperties(_resultSize)), CursorResponseNative.class);
     Assert.assertTrue(pinotPagingResponse.getExceptions().isEmpty());
-    ClusterTest.postQuery("", getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
+    ClusterTest.postQuery(null, getBrokerQueryApiUrl(getBrokerBaseApiUrl()), getHeaders(),
         getCursorOffset(pinotPagingResponse.getRequestId(), pinotPagingResponse.getNumRowsResultSet() + 1));
   }
 
@@ -379,11 +400,12 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
   @Test
   public void testResultStoreCleaner()
       throws Exception {
-    ResultResponse response = JsonUtils.stringToObject(
+    List<CursorResponseNative> requestIds = JsonUtils.stringToObject(
         ClusterTest.sendGetRequest(getBrokerGetAllQueryStoresApiUrl(getBrokerBaseApiUrl()), getHeaders()),
-        ResultResponse.class);
+        new TypeReference<>() {
+        });
 
-    int numQueryResults = response.getResultMetadataList().size();
+    int numQueryResults = requestIds.size();
 
     _resultSize = 100000;
     this.testQuery(TEST_QUERY_ONE);
@@ -391,16 +413,26 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     Thread.sleep(50);
     this.testQuery(TEST_QUERY_TWO);
 
-    response = JsonUtils.stringToObject(
-        ClusterTest.sendGetRequest(getBrokerGetAllQueryStoresApiUrl(getBrokerBaseApiUrl()), getHeaders()),
-        ResultResponse.class);
+    requestIds = JsonUtils.stringToObject(
+        ClusterTest.sendGetRequest(getBrokerGetAllQueryStoresApiUrl(getBrokerBaseApiUrl()), getHeaders()), new TypeReference<>() {
+        });
 
-    int numQueryResultsAfter = response.getResultMetadataList().size();
-    Assert.assertEquals(response.getResultMetadataList().size() - numQueryResults, 2);
+    int numQueryResultsAfter = requestIds.size();
+    Assert.assertEquals(requestIds.size() - numQueryResults, 2);
+
+    CursorResponseNative cursorResponse0 = JsonUtils.stringToObject(
+        ClusterTest.sendGetRequest(getBrokerResponseApiUrl(getBrokerBaseApiUrl(), requestIds.get(0).getRequestId()),
+            getHeaders()), new TypeReference<>() {
+        });
+
+    CursorResponseNative cursorResponse1 = JsonUtils.stringToObject(
+        ClusterTest.sendGetRequest(getBrokerResponseApiUrl(getBrokerBaseApiUrl(), requestIds.get(1).getRequestId()),
+            getHeaders()), new TypeReference<>() {
+        });
 
     // Get the lower submission time.
-    long expirationTime0 = response.getResultMetadataList().get(0).getExpirationTimeMs();
-    long expirationTime1 = response.getResultMetadataList().get(1).getExpirationTimeMs();
+    long expirationTime0 = cursorResponse0.getExpirationTimeMs();
+    long expirationTime1 = cursorResponse1.getExpirationTimeMs();
 
     Properties perodicTaskProperties = new Properties();
     perodicTaskProperties.setProperty("requestId", "PaginationIntegrationTest");
@@ -411,10 +443,10 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     // The periodic task is run in an executor thread. Give the thread some time to run the cleaner.
     TestUtils.waitForCondition(aVoid -> {
       try {
-        ResultResponse getNumQueryResults = JsonUtils.stringToObject(
+        List<CursorResponse> getNumQueryResults = JsonUtils.stringToObject(
             ClusterTest.sendGetRequest(getBrokerGetAllQueryStoresApiUrl(getBrokerBaseApiUrl()), getHeaders()),
-            ResultResponse.class);
-        return getNumQueryResults.getResultMetadataList().size() < numQueryResultsAfter;
+            List.class);
+        return getNumQueryResults.size() < numQueryResultsAfter;
       } catch (Exception e) {
         LOGGER.error(e.getMessage());
         return false;

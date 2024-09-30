@@ -32,7 +32,6 @@ import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.QueryProcessingException;
 import org.apache.pinot.core.transport.ServerRoutingInstance;
 import org.apache.pinot.spi.config.table.TableType;
-import org.apache.pinot.spi.query.QueryException;
 
 
 public class ExecutionStatsAggregator {
@@ -205,7 +204,7 @@ public class ExecutionStatsAggregator {
 
   public void setStats(String rawTableName, BrokerResponseNative brokerResponseNative, BrokerMetrics brokerMetrics) {
     // set exception
-    List<? extends QueryException> processingExceptions = brokerResponseNative.getExceptions();
+    List<QueryProcessingException> processingExceptions = brokerResponseNative.getExceptions();
     _processingExceptions.forEach(brokerResponseNative::addException);
 
     // add all trace.

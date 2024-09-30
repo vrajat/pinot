@@ -20,20 +20,19 @@ package org.apache.pinot.common.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import org.apache.pinot.common.response.broker.QueryProcessingException;
 import org.apache.pinot.common.response.broker.ResultTable;
-import org.apache.pinot.spi.query.QueryException;
-import org.apache.pinot.spi.query.QueryResponse;
-import org.apache.pinot.spi.query.ResultSet;
 import org.apache.pinot.spi.utils.JsonUtils;
 
 
 /**
  * Interface for broker response.
  */
-public interface BrokerResponse extends QueryResponse {
+public interface BrokerResponse {
 
   /**
    * Convert the broker response to JSON String.
@@ -44,25 +43,24 @@ public interface BrokerResponse extends QueryResponse {
   }
 
   /**
+   * Write the object JSON to the output stream.
+   */
+  default void toOutputStream(OutputStream outputStream)
+      throws IOException {
+    JsonUtils.objectToOutputStream(this, outputStream);
+  }
+
+  /**
    * Returns the result table.
    */
   @Nullable
   ResultTable getResultTable();
-
-  @Nullable
-  default ResultSet getResultSet() {
-    return getResultTable();
-  }
 
   /**
    * Sets the result table. We expose this method to allow modifying the results on the client side, e.g. hiding the
    * results and only showing the stats.
    */
   void setResultTable(@Nullable ResultTable resultTable);
-
-  default void setResultSet(@Nullable ResultSet resultSet) {
-    setResultTable((ResultTable) resultSet);
-  }
 
   /**
    * Returns the number of rows in the result table.
@@ -74,9 +72,14 @@ public interface BrokerResponse extends QueryResponse {
    */
   boolean isPartialResult();
 
+  /**
+   * Returns the processing exceptions encountered during the query execution.
+   */
+   List<QueryProcessingException> getExceptions();
+
   @Deprecated
   @JsonIgnore
-  default List<? extends QueryException> getProcessingExceptions() {
+  default List<QueryProcessingException> getProcessingExceptions() {
     return getExceptions();
   }
 

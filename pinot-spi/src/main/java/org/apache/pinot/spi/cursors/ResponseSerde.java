@@ -18,10 +18,12 @@
  */
 package org.apache.pinot.spi.cursors;
 
-import org.apache.pinot.spi.env.PinotConfiguration;
+import java.io.IOException;
+import java.io.OutputStream;
 
 
-public interface ResultStoreFactory {
-  String getType();
-  ResultStore create(PinotConfiguration configuration);
+public interface ResponseSerde {
+  void serialize(OutputStream stream, Object object)
+      throws IOException;
+  String getFileExtension();
 }

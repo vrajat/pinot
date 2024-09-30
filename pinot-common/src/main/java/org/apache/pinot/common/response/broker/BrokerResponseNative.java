@@ -166,7 +166,7 @@ public class BrokerResponseNative implements BrokerResponse {
   }
 
   @Override
-  public List<? extends org.apache.pinot.spi.query.QueryException> getExceptions() {
+  public List<QueryProcessingException> getExceptions() {
     return _exceptions;
   }
 
