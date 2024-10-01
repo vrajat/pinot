@@ -18,7 +18,6 @@
  */
 package org.apache.pinot.broker.cursors;
 
-import com.google.common.base.Preconditions;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -76,8 +75,8 @@ public class FsResultStore extends AbstractResultStore {
         CommonConstants.CursorConfigs.DEFAULT_TEMP_DIR));
     Files.createDirectories(_localTempDir);
 
-    Preconditions.checkNotNull(config.getProperty(CommonConstants.CursorConfigs.DATA_DIR));
-    _dataDir = new URI(config.getProperty(CommonConstants.CursorConfigs.DATA_DIR));
+    _dataDir = new URI(
+        config.getProperty(CommonConstants.CursorConfigs.DATA_DIR, CommonConstants.CursorConfigs.DEFAULT_DATA_DIR));
     PinotFS pinotFS = PinotFSFactory.create(_dataDir.getScheme());
     pinotFS.mkdir(_dataDir);
   }

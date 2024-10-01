@@ -414,7 +414,8 @@ public class CursorIntegrationTest extends BaseClusterIntegrationTestSet {
     this.testQuery(TEST_QUERY_TWO);
 
     requestIds = JsonUtils.stringToObject(
-        ClusterTest.sendGetRequest(getBrokerGetAllQueryStoresApiUrl(getBrokerBaseApiUrl()), getHeaders()), new TypeReference<>() {
+        ClusterTest.sendGetRequest(getBrokerGetAllQueryStoresApiUrl(getBrokerBaseApiUrl()), getHeaders()),
+        new TypeReference<>() {
         });
 
     int numQueryResultsAfter = requestIds.size();

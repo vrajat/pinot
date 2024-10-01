@@ -109,3 +109,16 @@ SqlNode SqlPhysicalExplain() :
             nDynamicParams);
     }
 }
+
+SqlNode SqlCursorFetch() :
+{
+    SqlNode requestId;
+    SqlNumericLiteral offset;
+    SqlNumericLiteral numRows;
+}
+{
+    <FETCH> requestId = StringLiteral() <OFFSET> offset = UnsignedNumericLiteral()
+    <ROWS> numRows = UnsignedNumericLiteral() {
+        return new SqlCursorFetch(getPos(), requestId, offset, numRows);
+    }
+}

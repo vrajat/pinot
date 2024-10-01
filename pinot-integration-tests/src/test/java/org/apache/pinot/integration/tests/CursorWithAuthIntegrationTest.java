@@ -111,7 +111,8 @@ public class CursorWithAuthIntegrationTest extends CursorIntegrationTest {
     URI uploadSegmentHttpURI = URI.create(getControllerRequestURLBuilder().forSegmentUpload());
     NameValuePair
         tableNameValuePair = new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_NAME, tableName);
-    NameValuePair tableTypeValuePair = new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_TYPE, tableType.name());
+    NameValuePair tableTypeValuePair = new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_TYPE,
+        tableType.name());
     List<NameValuePair> parameters = Arrays.asList(tableNameValuePair, tableTypeValuePair);
     List<Header> headers = List.of(new BasicHeader("Authorization", AUTH_TOKEN));
 

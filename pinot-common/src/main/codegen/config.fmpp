@@ -552,6 +552,7 @@ data: {
     statementParserMethods: [
       "SqlInsertFromFile()"
       "SqlPhysicalExplain()"
+      "SqlCursorFetch()"
     ]
 
     # List of methods for parsing custom literals.
