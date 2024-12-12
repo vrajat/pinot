@@ -27,6 +27,7 @@ import io.swagger.annotations.ApiResponses;
 import io.swagger.annotations.Authorization;
 import io.swagger.annotations.SecurityDefinition;
 import io.swagger.annotations.SwaggerDefinition;
+import java.util.List;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.PUT;
@@ -74,6 +75,22 @@ public class PinotBrokerRouting {
       @ApiParam(value = "Table name (with type)") @PathParam("tableName") String tableNameWithType,
       @Context HttpHeaders headers) {
     _routingManager.buildRouting(DatabaseUtils.translateTableName(tableNameWithType, headers));
+    return "Success";
+  }
+
+  @PUT
+  @Produces(MediaType.TEXT_PLAIN)
+  @Path("/routing/virtual/{tableName}")
+  @Authorize(targetType = TargetType.TABLE, paramName = "tableName", action = Actions.Table.BUILD_ROUTING)
+  @ApiOperation(value = "Build/rebuild the routing for a table", notes = "Build/rebuild the routing for a table")
+  @ApiResponses(value = {
+      @ApiResponse(code = 200, message = "Success"),
+      @ApiResponse(code = 500, message = "Internal server error")
+  })
+  public String buildVirtualRouting(
+      @ApiParam(value = "Table name (with type)") @PathParam("tableName") String tableNameWithType,
+      @Context HttpHeaders headers) {
+    _routingManager.buildVirtualRouting("nation_OFFLINE", List.of("nation1_OFFLINE", "nation2_OFFLINE"));
     return "Success";
   }
 

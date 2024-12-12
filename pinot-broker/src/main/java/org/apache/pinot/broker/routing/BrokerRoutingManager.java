@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.helix.AccessOption;
@@ -159,16 +160,18 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
     List<String> idealStatePaths = new ArrayList<>(numTables);
     List<String> externalViewPaths = new ArrayList<>(numTables);
     for (Map.Entry<String, RoutingEntry> entry : _routingEntryMap.entrySet()) {
-      routingEntries.add(entry.getValue());
-      idealStatePaths.add(entry.getValue()._idealStatePath);
-      externalViewPaths.add(entry.getValue()._externalViewPath);
+      if (!entry.getValue().isVirtual()) {
+        routingEntries.add(entry.getValue());
+        idealStatePaths.add(entry.getValue().getIdealStatePath());
+        externalViewPaths.add(entry.getValue().getExternalViewPath());
+      }
     }
     Stat[] idealStateStats = _zkDataAccessor.getStats(idealStatePaths, AccessOption.PERSISTENT);
     Stat[] externalViewStats = _zkDataAccessor.getStats(externalViewPaths, AccessOption.PERSISTENT);
     long fetchStatsEndTimeMs = System.currentTimeMillis();
 
     List<String> tablesToUpdate = new ArrayList<>();
-    for (int i = 0; i < numTables; i++) {
+    for (int i = 0; i < routingEntries.size(); i++) {
       Stat idealStateStat = idealStateStats[i];
       Stat externalViewStat = externalViewStats[i];
       if (idealStateStat != null && externalViewStat != null) {
@@ -178,13 +181,13 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
           String tableNameWithType = routingEntry.getTableNameWithType();
           tablesToUpdate.add(tableNameWithType);
           try {
-            IdealState idealState = getIdealState(routingEntry._idealStatePath);
+            IdealState idealState = getIdealState(routingEntry.getIdealStatePath());
             if (idealState == null) {
               LOGGER.warn("Failed to find ideal state for table: {}, skipping updating routing entry",
                   tableNameWithType);
               continue;
             }
-            ExternalView externalView = getExternalView(routingEntry._externalViewPath);
+            ExternalView externalView = getExternalView(routingEntry.getExternalViewPath());
             if (externalView == null) {
               LOGGER.warn("Failed to find external view for table: {}, skipping updating routing entry",
                   tableNameWithType);
@@ -530,8 +533,8 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
     }
     segmentZkMetadataFetcher.init(idealState, externalView, preSelectedOnlineSegments);
 
-    RoutingEntry routingEntry =
-        new RoutingEntry(tableNameWithType, idealStatePath, externalViewPath, segmentPreSelector, segmentSelector,
+    TableRoutingEntry routingEntry =
+        new TableRoutingEntry(tableNameWithType, idealStatePath, externalViewPath, segmentPreSelector, segmentSelector,
             segmentPruners, instanceSelector, idealStateVersion, externalViewVersion, segmentZkMetadataFetcher,
             timeBoundaryManager, partitionMetadataManager, queryTimeoutMs, !idealState.isEnabled());
     if (_routingEntryMap.put(tableNameWithType, routingEntry) == null) {
@@ -541,10 +544,16 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
     }
   }
 
+  public synchronized void buildVirtualRouting(String tableNameWithType, List<String> physicalTableNamesWithType) {
+    VirtualTableRoutingEntry routingEntry = new VirtualTableRoutingEntry(tableNameWithType, _routingEntryMap.entrySet().stream().filter(e -> physicalTableNamesWithType.contains(e.getKey())).map(Map.Entry::getValue).collect(
+        Collectors.toList()));
+    _routingEntryMap.put(tableNameWithType, routingEntry);
+  }
+
   /**
    * Returns the online segments (with ONLINE/CONSUMING instances) in the given ideal state.
    */
-  private static Set<String> getOnlineSegments(IdealState idealState) {
+  static Set<String> getOnlineSegments(IdealState idealState) {
     Map<String, Map<String, String>> segmentAssignment = idealState.getRecord().getMapFields();
     Set<String> onlineSegments = new HashSet<>(HashUtil.getHashMapCapacity(segmentAssignment.size()));
     for (Map.Entry<String, Map<String, String>> entry : segmentAssignment.entrySet()) {
@@ -712,7 +721,7 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
     if (routingEntry == null) {
       return null;
     }
-    return routingEntry._instanceSelector.getServingInstances();
+    return routingEntry.getInstanceSelector().getServingInstances();
   }
 
   /**
@@ -723,130 +732,5 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
   public Long getQueryTimeoutMs(String tableNameWithType) {
     RoutingEntry routingEntry = _routingEntryMap.get(tableNameWithType);
     return routingEntry != null ? routingEntry.getQueryTimeoutMs() : null;
-  }
-
-  private static class RoutingEntry {
-    final String _tableNameWithType;
-    final String _idealStatePath;
-    final String _externalViewPath;
-    final SegmentPreSelector _segmentPreSelector;
-    final SegmentSelector _segmentSelector;
-    final List<SegmentPruner> _segmentPruners;
-    final SegmentPartitionMetadataManager _partitionMetadataManager;
-    final InstanceSelector _instanceSelector;
-    final Long _queryTimeoutMs;
-    final SegmentZkMetadataFetcher _segmentZkMetadataFetcher;
-
-    // Cache IdealState and ExternalView version for the last update
-    transient int _lastUpdateIdealStateVersion;
-    transient int _lastUpdateExternalViewVersion;
-    // Time boundary manager is only available for the offline part of the hybrid table
-    transient TimeBoundaryManager _timeBoundaryManager;
-
-    transient boolean _disabled;
-
-    RoutingEntry(String tableNameWithType, String idealStatePath, String externalViewPath,
-        SegmentPreSelector segmentPreSelector, SegmentSelector segmentSelector, List<SegmentPruner> segmentPruners,
-        InstanceSelector instanceSelector, int lastUpdateIdealStateVersion, int lastUpdateExternalViewVersion,
-        SegmentZkMetadataFetcher segmentZkMetadataFetcher, @Nullable TimeBoundaryManager timeBoundaryManager,
-        @Nullable SegmentPartitionMetadataManager partitionMetadataManager, @Nullable Long queryTimeoutMs,
-        boolean disabled) {
-      _tableNameWithType = tableNameWithType;
-      _idealStatePath = idealStatePath;
-      _externalViewPath = externalViewPath;
-      _segmentPreSelector = segmentPreSelector;
-      _segmentSelector = segmentSelector;
-      _segmentPruners = segmentPruners;
-      _instanceSelector = instanceSelector;
-      _lastUpdateIdealStateVersion = lastUpdateIdealStateVersion;
-      _lastUpdateExternalViewVersion = lastUpdateExternalViewVersion;
-      _timeBoundaryManager = timeBoundaryManager;
-      _partitionMetadataManager = partitionMetadataManager;
-      _queryTimeoutMs = queryTimeoutMs;
-      _segmentZkMetadataFetcher = segmentZkMetadataFetcher;
-      _disabled = disabled;
-    }
-
-    String getTableNameWithType() {
-      return _tableNameWithType;
-    }
-
-    int getLastUpdateIdealStateVersion() {
-      return _lastUpdateIdealStateVersion;
-    }
-
-    int getLastUpdateExternalViewVersion() {
-      return _lastUpdateExternalViewVersion;
-    }
-
-    void setTimeBoundaryManager(@Nullable TimeBoundaryManager timeBoundaryManager) {
-      _timeBoundaryManager = timeBoundaryManager;
-    }
-
-    @Nullable
-    TimeBoundaryManager getTimeBoundaryManager() {
-      return _timeBoundaryManager;
-    }
-
-    @Nullable
-    SegmentPartitionMetadataManager getPartitionMetadataManager() {
-      return _partitionMetadataManager;
-    }
-
-    Long getQueryTimeoutMs() {
-      return _queryTimeoutMs;
-    }
-
-    boolean isDisabled() {
-      return _disabled;
-    }
-
-    // NOTE: The change gets applied in sequence, and before change applied to all components, there could be some
-    // inconsistency between components, which is fine because the inconsistency only exists for the newly changed
-    // segments and only lasts for a very short time.
-    void onAssignmentChange(IdealState idealState, ExternalView externalView) {
-      Set<String> onlineSegments = getOnlineSegments(idealState);
-      Set<String> preSelectedOnlineSegments = _segmentPreSelector.preSelect(onlineSegments);
-      _segmentZkMetadataFetcher.onAssignmentChange(idealState, externalView, preSelectedOnlineSegments);
-      _segmentSelector.onAssignmentChange(idealState, externalView, preSelectedOnlineSegments);
-      _instanceSelector.onAssignmentChange(idealState, externalView, preSelectedOnlineSegments);
-      if (_timeBoundaryManager != null) {
-        _timeBoundaryManager.onAssignmentChange(idealState, externalView, preSelectedOnlineSegments);
-      }
-      _lastUpdateIdealStateVersion = idealState.getStat().getVersion();
-      _lastUpdateExternalViewVersion = externalView.getStat().getVersion();
-      _disabled = !idealState.isEnabled();
-    }
-
-    void onInstancesChange(Set<String> enabledInstances, List<String> changedInstances) {
-      _instanceSelector.onInstancesChange(enabledInstances, changedInstances);
-    }
-
-    void refreshSegment(String segment) {
-      _segmentZkMetadataFetcher.refreshSegment(segment);
-      if (_timeBoundaryManager != null) {
-        _timeBoundaryManager.refreshSegment(segment);
-      }
-    }
-
-    InstanceSelector.SelectionResult calculateRouting(BrokerRequest brokerRequest, long requestId) {
-      Set<String> selectedSegments = _segmentSelector.select(brokerRequest);
-      int numTotalSelectedSegments = selectedSegments.size();
-      if (!selectedSegments.isEmpty()) {
-        for (SegmentPruner segmentPruner : _segmentPruners) {
-          selectedSegments = segmentPruner.prune(brokerRequest, selectedSegments);
-        }
-      }
-      int numPrunedSegments = numTotalSelectedSegments - selectedSegments.size();
-      if (!selectedSegments.isEmpty()) {
-        InstanceSelector.SelectionResult selectionResult =
-            _instanceSelector.select(brokerRequest, new ArrayList<>(selectedSegments), requestId);
-        selectionResult.setNumPrunedSegments(numPrunedSegments);
-        return selectionResult;
-      } else {
-        return new InstanceSelector.SelectionResult(Pair.of(Collections.emptyMap(), Collections.emptyMap()),
-            Collections.emptyList(), numPrunedSegments);
-      }
-    }
   }
 }
