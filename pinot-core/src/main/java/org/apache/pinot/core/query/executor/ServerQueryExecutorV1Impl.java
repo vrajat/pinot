@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -49,6 +50,7 @@ import org.apache.pinot.core.common.ExplainPlanRowData;
 import org.apache.pinot.core.common.ExplainPlanRows;
 import org.apache.pinot.core.common.Operator;
 import org.apache.pinot.core.data.manager.InstanceDataManager;
+import org.apache.pinot.core.data.manager.VirtualTableDataManager;
 import org.apache.pinot.core.data.manager.realtime.RealtimeTableDataManager;
 import org.apache.pinot.core.operator.InstanceResponseOperator;
 import org.apache.pinot.core.operator.blocks.InstanceResponseBlock;
@@ -196,6 +198,13 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
     }
 
     TableDataManager tableDataManager = _instanceDataManager.getTableDataManager(tableNameWithType);
+    final VirtualTableDataManager manager = new VirtualTableDataManager();
+    if (tableDataManager == null && tableNameWithType.equals("nation_OFFLINE")) {
+      manager.init(List.of(Objects.requireNonNull(_instanceDataManager.getTableDataManager("nation1_OFFLINE")),
+          Objects.requireNonNull(_instanceDataManager.getTableDataManager("nation2_OFFLINE"))));
+      tableDataManager = manager;
+    }
+
     if (tableDataManager == null) {
       String errorMessage = "Failed to find table: " + tableNameWithType + " on server: "
           + _instanceDataManager.getInstanceId();
@@ -366,8 +375,9 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
     // After step 2 but before step 4, segment will be missing on server side
     // TODO: Change broker to watch both IdealState and ExternalView to not query the removed segments
     if (notAcquiredSegments.size() > 0) {
+      TableDataManager finalTableDataManager = tableDataManager;
       List<String> missingSegments =
-          notAcquiredSegments.stream().filter(segmentName -> !tableDataManager.isSegmentDeletedRecently(segmentName))
+          notAcquiredSegments.stream().filter(segmentName -> !finalTableDataManager.isSegmentDeletedRecently(segmentName))
               .collect(Collectors.toList());
       int numMissingSegments = missingSegments.size();
       if (numMissingSegments > 0) {
