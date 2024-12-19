@@ -106,7 +106,7 @@ public class QueryRouter {
       assert offlineRoutingTable != null;
       for (Map.Entry<ServerInstance, Pair<List<String>, List<String>>> entry : offlineRoutingTable.entrySet()) {
         ServerRoutingInstance serverRoutingInstance =
-            entry.getKey().toServerRoutingInstance(TableType.OFFLINE, preferTls);
+            entry.getKey().toServerRoutingInstance(rawTableName, TableType.OFFLINE, preferTls);
         InstanceRequest instanceRequest = getInstanceRequest(requestId, offlineBrokerRequest, entry.getValue());
         requestMap.put(serverRoutingInstance, instanceRequest);
       }
@@ -115,7 +115,7 @@ public class QueryRouter {
       assert realtimeRoutingTable != null;
       for (Map.Entry<ServerInstance, Pair<List<String>, List<String>>> entry : realtimeRoutingTable.entrySet()) {
         ServerRoutingInstance serverRoutingInstance =
-            entry.getKey().toServerRoutingInstance(TableType.REALTIME, preferTls);
+            entry.getKey().toServerRoutingInstance(rawTableName, TableType.REALTIME, preferTls);
         InstanceRequest instanceRequest = getInstanceRequest(requestId, realtimeBrokerRequest, entry.getValue());
         requestMap.put(serverRoutingInstance, instanceRequest);
       }
@@ -176,9 +176,9 @@ public class QueryRouter {
   public boolean connect(ServerInstance serverInstance) {
     try {
       if (_serverChannelsTls != null) {
-        _serverChannelsTls.connect(serverInstance.toServerRoutingInstance(TableType.OFFLINE, true));
+        _serverChannelsTls.connect(serverInstance.toServerRoutingInstance("connect_dummy_table", TableType.OFFLINE, true));
       } else {
-        _serverChannels.connect(serverInstance.toServerRoutingInstance(TableType.OFFLINE, false));
+        _serverChannels.connect(serverInstance.toServerRoutingInstance("connect_dummy_table", TableType.OFFLINE, false));
       }
       return true;
     } catch (Exception e) {

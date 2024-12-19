@@ -43,23 +43,25 @@ public final class ServerRoutingInstance {
   private final String _hostname;
   private final int _port;
   private final TableType _tableType;
+  private final String _rawTableName;
   private final boolean _tlsEnabled;
 
-  public ServerRoutingInstance(String instanceId, String hostname, int port, TableType tableType, boolean tlsEnabled) {
+  public ServerRoutingInstance(String instanceId, String hostname, int port, String rawTableName, TableType tableType, boolean tlsEnabled) {
     _instanceId = instanceId;
     _hostname = hostname;
     _port = port;
     _tableType = tableType;
     _tlsEnabled = tlsEnabled;
+    _rawTableName = rawTableName;
   }
 
-  public ServerRoutingInstance(String instanceId, String hostname, int port, TableType tableType) {
-    this(instanceId, hostname, port, tableType, false);
+  public ServerRoutingInstance(String instanceId, String hostname, int port, String rawTableName, TableType tableType) {
+    this(instanceId, hostname, port, rawTableName, tableType, false);
   }
 
   @VisibleForTesting
-  public ServerRoutingInstance(String hostname, int port, TableType tableType) {
-    this(Helix.PREFIX_OF_SERVER_INSTANCE + hostname + "_" + port, hostname, port, tableType);
+  public ServerRoutingInstance(String hostname, int port, String rawTableName, TableType tableType) {
+    this(Helix.PREFIX_OF_SERVER_INSTANCE + hostname + "_" + port, hostname, port, rawTableName, tableType);
   }
 
   public String getInstanceId() {
@@ -76,6 +78,10 @@ public final class ServerRoutingInstance {
 
   public TableType getTableType() {
     return _tableType;
+  }
+
+  public String getRawTableName() {
+    return _rawTableName;
   }
 
   public String getShortName() {
@@ -105,7 +111,8 @@ public final class ServerRoutingInstance {
     ServerRoutingInstance that = (ServerRoutingInstance) o;
     // NOTE: Only check hostname, port and tableType for performance concern because they can identify a routing
     //       instance within the same query
-    return _hostname.equals(that._hostname) && _port == that._port && _tableType == that._tableType;
+    return _hostname.equals(that._hostname) && _port == that._port && _rawTableName.equals(that._rawTableName)
+        && _tableType == that._tableType;
   }
 
   @Override

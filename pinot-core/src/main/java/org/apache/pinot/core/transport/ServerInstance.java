@@ -126,25 +126,25 @@ public final class ServerInstance {
 
   // Does not require TLS until all servers guaranteed to be on TLS
   @Deprecated
-  public ServerRoutingInstance toServerRoutingInstance(TableType tableType, boolean preferNettyTls) {
+  public ServerRoutingInstance toServerRoutingInstance(String rawTableName, TableType tableType, boolean preferNettyTls) {
     if (preferNettyTls && _nettyTlsPort > 0) {
-      return new ServerRoutingInstance(_instanceId, _hostname, _nettyTlsPort, tableType, true);
+      return new ServerRoutingInstance(_instanceId, _hostname, _nettyTlsPort, rawTableName, tableType, true);
     } else {
-      return new ServerRoutingInstance(_instanceId, _hostname, _port, tableType);
+      return new ServerRoutingInstance(_instanceId, _hostname, _port, rawTableName, tableType);
     }
   }
 
-  public ServerRoutingInstance toServerRoutingInstance(TableType tableType, RoutingType routingType) {
+  public ServerRoutingInstance toServerRoutingInstance(String rawTableName, TableType tableType, RoutingType routingType) {
     switch (routingType) {
       case NETTY:
         Preconditions.checkState(_port > 0, "Netty port is not configured for server: %s", _instanceId);
-        return new ServerRoutingInstance(_instanceId, _hostname, _port, tableType);
+        return new ServerRoutingInstance(_instanceId, _hostname, _port, rawTableName, tableType);
       case GRPC:
         Preconditions.checkState(_grpcPort > 0, "GRPC port is not configured for server: %s", _instanceId);
-        return new ServerRoutingInstance(_instanceId, _hostname, _grpcPort, tableType);
+        return new ServerRoutingInstance(_instanceId, _hostname, _grpcPort, rawTableName, tableType);
       case NETTY_TLS:
         Preconditions.checkState(_nettyTlsPort > 0, "Netty TLS port is not configured for server: %s", _instanceId);
-        return new ServerRoutingInstance(_instanceId, _hostname, _nettyTlsPort, tableType, true);
+        return new ServerRoutingInstance(_instanceId, _hostname, _nettyTlsPort, rawTableName, tableType, true);
       default:
         throw new IllegalStateException("Unsupported routing type: " + routingType);
     }

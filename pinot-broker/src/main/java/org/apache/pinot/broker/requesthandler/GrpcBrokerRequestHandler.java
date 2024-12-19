@@ -43,6 +43,7 @@ import org.apache.pinot.core.transport.ServerRoutingInstance;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.trace.RequestContext;
+import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 
 
 /**
@@ -84,15 +85,16 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
     // TODO: Support failure detection
     // TODO: Add servers queried/responded stats
     assert offlineBrokerRequest != null || realtimeBrokerRequest != null;
+    String rawTableName = TableNameBuilder.extractRawTableName(serverBrokerRequest.getQuerySource().getTableName());
     Map<ServerRoutingInstance, Iterator<Server.ServerResponse>> responseMap = new HashMap<>();
     if (offlineBrokerRequest != null) {
       assert offlineRoutingTable != null;
-      sendRequest(requestId, TableType.OFFLINE, offlineBrokerRequest, offlineRoutingTable, responseMap,
+      sendRequest(requestId, rawTableName, TableType.OFFLINE, offlineBrokerRequest, offlineRoutingTable, responseMap,
           requestContext.isSampledRequest());
     }
     if (realtimeBrokerRequest != null) {
       assert realtimeRoutingTable != null;
-      sendRequest(requestId, TableType.REALTIME, realtimeBrokerRequest, realtimeRoutingTable, responseMap,
+      sendRequest(requestId, rawTableName, TableType.REALTIME, realtimeBrokerRequest, realtimeRoutingTable, responseMap,
           requestContext.isSampledRequest());
     }
     long reduceStartTimeNs = System.nanoTime();
@@ -105,7 +107,7 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
   /**
    * Query pinot server for data table.
    */
-  private void sendRequest(long requestId, TableType tableType, BrokerRequest brokerRequest,
+  private void sendRequest(long requestId, String rawTableName, TableType tableType, BrokerRequest brokerRequest,
       Map<ServerInstance, Pair<List<String>, List<String>>> routingTable,
       Map<ServerRoutingInstance, Iterator<Server.ServerResponse>> responseMap, boolean trace) {
     for (Map.Entry<ServerInstance, Pair<List<String>, List<String>>> routingEntry : routingTable.entrySet()) {
@@ -118,7 +120,7 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
       Iterator<Server.ServerResponse> streamingResponse = _streamingQueryClient.submit(serverHost, port,
           new GrpcRequestBuilder().setRequestId(requestId).setBrokerId(_brokerId).setEnableTrace(trace)
               .setEnableStreaming(true).setBrokerRequest(brokerRequest).setSegments(segments).build());
-      responseMap.put(serverInstance.toServerRoutingInstance(tableType, ServerInstance.RoutingType.GRPC),
+      responseMap.put(serverInstance.toServerRoutingInstance(rawTableName, tableType, ServerInstance.RoutingType.GRPC),
           streamingResponse);
     }
   }
