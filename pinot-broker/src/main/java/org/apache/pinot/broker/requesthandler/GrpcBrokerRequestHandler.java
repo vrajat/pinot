@@ -24,9 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pinot.broker.broker.AccessControlFactory;
 import org.apache.pinot.broker.queryquota.QueryQuotaManager;
 import org.apache.pinot.broker.routing.BrokerRoutingManager;
@@ -34,16 +32,14 @@ import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.config.provider.TableCache;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.request.BrokerRequest;
+import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
 import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
 import org.apache.pinot.core.query.reduce.StreamingReduceService;
-import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.core.transport.ServerRoutingInstance;
-import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.trace.RequestContext;
-import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 
 
 /**
@@ -76,27 +72,17 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
 
   @Override
   protected BrokerResponseNative processBrokerRequest(long requestId, BrokerRequest originalBrokerRequest,
-      BrokerRequest serverBrokerRequest, @Nullable BrokerRequest offlineBrokerRequest,
-      @Nullable Map<ServerInstance, Pair<List<String>, List<String>>> offlineRoutingTable,
-      @Nullable BrokerRequest realtimeBrokerRequest,
-      @Nullable Map<ServerInstance, Pair<List<String>, List<String>>> realtimeRoutingTable, long timeoutMs,
+      BrokerRequest serverBrokerRequest, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs,
       ServerStats serverStats, RequestContext requestContext)
       throws Exception {
     // TODO: Support failure detection
     // TODO: Add servers queried/responded stats
-    assert offlineBrokerRequest != null || realtimeBrokerRequest != null;
-    String rawTableName = TableNameBuilder.extractRawTableName(serverBrokerRequest.getQuerySource().getTableName());
+    // TODO (RV): Set port to grpc port
     Map<ServerRoutingInstance, Iterator<Server.ServerResponse>> responseMap = new HashMap<>();
-    if (offlineBrokerRequest != null) {
-      assert offlineRoutingTable != null;
-      sendRequest(requestId, rawTableName, TableType.OFFLINE, offlineBrokerRequest, offlineRoutingTable, responseMap,
-          requestContext.isSampledRequest());
+    for (Map.Entry<ServerRoutingInstance, InstanceRequest> entry : requestMap.entrySet()) {
+      sendRequest(requestId, entry.getKey(), entry.getValue(), responseMap, requestContext.isSampledRequest());
     }
-    if (realtimeBrokerRequest != null) {
-      assert realtimeRoutingTable != null;
-      sendRequest(requestId, rawTableName, TableType.REALTIME, realtimeBrokerRequest, realtimeRoutingTable, responseMap,
-          requestContext.isSampledRequest());
-    }
+
     long reduceStartTimeNs = System.nanoTime();
     BrokerResponseNative brokerResponse =
         _streamingReduceService.reduceOnStreamResponse(originalBrokerRequest, responseMap, timeoutMs, _brokerMetrics);
@@ -107,22 +93,18 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
   /**
    * Query pinot server for data table.
    */
-  private void sendRequest(long requestId, String rawTableName, TableType tableType, BrokerRequest brokerRequest,
-      Map<ServerInstance, Pair<List<String>, List<String>>> routingTable,
+  private void sendRequest(long requestId, ServerRoutingInstance serverInstance, InstanceRequest instanceRequest,
       Map<ServerRoutingInstance, Iterator<Server.ServerResponse>> responseMap, boolean trace) {
-    for (Map.Entry<ServerInstance, Pair<List<String>, List<String>>> routingEntry : routingTable.entrySet()) {
-      ServerInstance serverInstance = routingEntry.getKey();
-      // TODO: support optional segments for GrpcQueryServer.
-      List<String> segments = routingEntry.getValue().getLeft();
-      String serverHost = serverInstance.getHostname();
-      int port = serverInstance.getGrpcPort();
-      // TODO: enable throttling on per host bases.
-      Iterator<Server.ServerResponse> streamingResponse = _streamingQueryClient.submit(serverHost, port,
-          new GrpcRequestBuilder().setRequestId(requestId).setBrokerId(_brokerId).setEnableTrace(trace)
-              .setEnableStreaming(true).setBrokerRequest(brokerRequest).setSegments(segments).build());
-      responseMap.put(serverInstance.toServerRoutingInstance(rawTableName, tableType, ServerInstance.RoutingType.GRPC),
-          streamingResponse);
-    }
+    // TODO: support optional segments for GrpcQueryServer.
+    List<String> segments = instanceRequest.getSearchSegments();
+    String serverHost = serverInstance.getHostname();
+    int port = serverInstance.getPort();
+    // TODO: enable throttling on per host bases.
+    // TODO (RV): Set broker request
+    Iterator<Server.ServerResponse> streamingResponse = _streamingQueryClient.submit(serverHost, port,
+        new GrpcRequestBuilder().setRequestId(requestId).setBrokerId(_brokerId).setEnableTrace(trace)
+            .setEnableStreaming(true).setSegments(segments).build());
+    responseMap.put(serverInstance, streamingResponse);
   }
 
   public static class PinotStreamingQueryClient {

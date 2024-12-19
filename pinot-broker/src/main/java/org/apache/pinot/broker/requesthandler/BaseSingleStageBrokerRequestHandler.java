@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +71,7 @@ import org.apache.pinot.common.request.Expression;
 import org.apache.pinot.common.request.ExpressionType;
 import org.apache.pinot.common.request.Function;
 import org.apache.pinot.common.request.Identifier;
+import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.common.request.Literal;
 import org.apache.pinot.common.request.PinotQuery;
 import org.apache.pinot.common.response.BrokerResponse;
@@ -87,6 +89,7 @@ import org.apache.pinot.core.query.optimizer.QueryOptimizer;
 import org.apache.pinot.core.routing.RoutingTable;
 import org.apache.pinot.core.routing.TimeBoundaryInfo;
 import org.apache.pinot.core.transport.ServerInstance;
+import org.apache.pinot.core.transport.ServerRoutingInstance;
 import org.apache.pinot.core.util.GapfillUtils;
 import org.apache.pinot.query.parser.utils.ParserUtils;
 import org.apache.pinot.spi.auth.AuthorizationResult;
@@ -807,16 +810,23 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
         _queriesById.put(requestId, new QueryServers(query, offlineRoutingTable, realtimeRoutingTable));
         LOGGER.debug("Keep track of running query: {}", requestId);
         try {
-          brokerResponse = processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, offlineBrokerRequest,
-              offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, remainingTimeMs, serverStats,
-              requestContext);
+          Map<ServerRoutingInstance, InstanceRequest> requestMap =
+              getRequestMap(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest,
+                  realtimeRoutingTable);
+          brokerResponse =
+              processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, requestMap, remainingTimeMs,
+                  serverStats, requestContext);
         } finally {
           _queriesById.remove(requestId);
           LOGGER.debug("Remove track of running query: {}", requestId);
         }
       } else {
-        brokerResponse = processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, offlineBrokerRequest,
-            offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, remainingTimeMs, serverStats,
+        Map<ServerRoutingInstance, InstanceRequest> requestMap =
+            getRequestMap(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest,
+                realtimeRoutingTable);
+        brokerResponse =
+            processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, requestMap, remainingTimeMs,
+                serverStats,
             requestContext);
       }
       brokerResponse.setTablesQueried(Set.of(rawTableName));
@@ -1879,10 +1889,7 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
    * TODO: Directly take PinotQuery
    */
   protected abstract BrokerResponseNative processBrokerRequest(long requestId, BrokerRequest originalBrokerRequest,
-      BrokerRequest serverBrokerRequest, @Nullable BrokerRequest offlineBrokerRequest,
-      @Nullable Map<ServerInstance, Pair<List<String>, List<String>>> offlineRoutingTable,
-      @Nullable BrokerRequest realtimeBrokerRequest,
-      @Nullable Map<ServerInstance, Pair<List<String>, List<String>>> realtimeRoutingTable, long timeoutMs,
+      BrokerRequest serverBrokerRequest, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs,
       ServerStats serverStats, RequestContext requestContext)
       throws Exception;
 
@@ -1922,5 +1929,50 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
         _servers.addAll(realtimeRoutingTable.keySet());
       }
     }
+  }
+
+  private Map<ServerRoutingInstance, InstanceRequest> getRequestMap(long requestId, String rawTableName,
+      BrokerRequest offlineBrokerRequest, Map<ServerInstance, Pair<List<String>, List<String>>> offlineRoutingTable,
+      BrokerRequest realtimeBrokerRequest, Map<ServerInstance, Pair<List<String>, List<String>>> realtimeRoutingTable) {
+    // Build map from server to request based on the routing table
+    Map<ServerRoutingInstance, InstanceRequest> requestMap = new HashMap<>();
+    if (offlineBrokerRequest != null) {
+      assert offlineRoutingTable != null;
+      for (Map.Entry<ServerInstance, Pair<List<String>, List<String>>> entry : offlineRoutingTable.entrySet()) {
+        ServerRoutingInstance serverRoutingInstance =
+            entry.getKey().toServerRoutingInstance(rawTableName, TableType.OFFLINE);
+        InstanceRequest instanceRequest = getInstanceRequest(requestId, offlineBrokerRequest, entry.getValue());
+        requestMap.put(serverRoutingInstance, instanceRequest);
+      }
+    }
+    if (realtimeBrokerRequest != null) {
+      assert realtimeRoutingTable != null;
+      for (Map.Entry<ServerInstance, Pair<List<String>, List<String>>> entry : realtimeRoutingTable.entrySet()) {
+        ServerRoutingInstance serverRoutingInstance =
+            entry.getKey().toServerRoutingInstance(rawTableName, TableType.REALTIME);
+        InstanceRequest instanceRequest = getInstanceRequest(requestId, realtimeBrokerRequest, entry.getValue());
+        requestMap.put(serverRoutingInstance, instanceRequest);
+      }
+    }
+    return requestMap;
+  }
+
+  public static InstanceRequest getInstanceRequest(long requestId, BrokerRequest brokerRequest,
+      Pair<List<String>, List<String>> segments) {
+    InstanceRequest instanceRequest = new InstanceRequest();
+    instanceRequest.setRequestId(requestId);
+    instanceRequest.setQuery(brokerRequest);
+    Map<String, String> queryOptions = brokerRequest.getPinotQuery().getQueryOptions();
+    if (queryOptions != null) {
+      instanceRequest.setEnableTrace(Boolean.parseBoolean(queryOptions.get(CommonConstants.Broker.Request.TRACE)));
+    }
+    instanceRequest.setSearchSegments(segments.getLeft());
+    if (CollectionUtils.isNotEmpty(segments.getRight())) {
+      // Don't set this field, i.e. leave it as null, if there is no optional segment at all, to be more backward
+      // compatible, as there are places like in multi-stage query engine where this field is not set today when
+      // creating the InstanceRequest.
+      instanceRequest.setOptionalSegments(segments.getRight());
+    }
+    return instanceRequest;
   }
 }

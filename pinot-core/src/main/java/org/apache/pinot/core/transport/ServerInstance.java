@@ -134,6 +134,10 @@ public final class ServerInstance {
     }
   }
 
+  public ServerRoutingInstance toServerRoutingInstance(String rawTableName, TableType tableType) {
+    return toServerRoutingInstance(rawTableName, tableType, RoutingType.NETTY);
+  }
+
   public ServerRoutingInstance toServerRoutingInstance(String rawTableName, TableType tableType, RoutingType routingType) {
     switch (routingType) {
       case NETTY:

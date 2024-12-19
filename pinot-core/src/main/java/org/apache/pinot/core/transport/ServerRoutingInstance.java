@@ -64,6 +64,10 @@ public final class ServerRoutingInstance {
     this(Helix.PREFIX_OF_SERVER_INSTANCE + hostname + "_" + port, hostname, port, rawTableName, tableType);
   }
 
+  public ServerRoutingInstance(ServerRoutingInstance other, boolean tlsEnabled) {
+    this(other._instanceId, other._hostname, other._port, other._rawTableName, other._tableType, tlsEnabled);
+  }
+
   public String getInstanceId() {
     return _instanceId;
   }
