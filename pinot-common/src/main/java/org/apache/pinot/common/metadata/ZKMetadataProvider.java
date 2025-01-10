@@ -37,6 +37,7 @@ import org.apache.pinot.common.assignment.InstancePartitions;
 import org.apache.pinot.common.metadata.instance.InstanceZKMetadata;
 import org.apache.pinot.common.metadata.segment.SegmentZKMetadata;
 import org.apache.pinot.common.utils.LLCSegmentName;
+import org.apache.pinot.common.utils.LogicalTableUtils;
 import org.apache.pinot.common.utils.SchemaUtils;
 import org.apache.pinot.common.utils.config.AccessControlUserConfigUtils;
 import org.apache.pinot.common.utils.config.TableConfigUtils;
@@ -46,6 +47,7 @@ import org.apache.pinot.spi.config.table.QuotaConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.config.user.UserConfig;
+import org.apache.pinot.spi.data.LogicalTable;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.JsonUtils;
@@ -68,6 +70,7 @@ public class ZKMetadataProvider {
   private static final String PROPERTYSTORE_SEGMENTS_PREFIX = "/SEGMENTS";
   private static final String PROPERTYSTORE_PAUSELESS_DEBUG_METADATA_PREFIX = "/PAUSELESS_DEBUG_METADATA";
   private static final String PROPERTYSTORE_SCHEMAS_PREFIX = "/SCHEMAS";
+  private static final String PROPERTYSTORE_LOGICAL_PREFIX = "/LOGICAL";
   private static final String PROPERTYSTORE_INSTANCE_PARTITIONS_PREFIX = "/INSTANCE_PARTITIONS";
   private static final String PROPERTYSTORE_DATABASE_CONFIGS_PREFIX = "/CONFIGS/DATABASE";
   private static final String PROPERTYSTORE_TABLE_CONFIGS_PREFIX = "/CONFIGS/TABLE";
@@ -253,6 +256,10 @@ public class ZKMetadataProvider {
 
   public static String constructPropertyStorePathForSchema(String schemaName) {
     return StringUtil.join("/", PROPERTYSTORE_SCHEMAS_PREFIX, schemaName);
+  }
+
+  public static String constructPropertyStorePathForLogical(String schemaName) {
+    return StringUtil.join("/", PROPERTYSTORE_LOGICAL_PREFIX, schemaName);
   }
 
   public static String constructPropertyStorePathForInstancePartitions(String instancePartitionsName) {
@@ -823,6 +830,26 @@ public class ZKMetadataProvider {
         return null;
       }
     } else {
+      return null;
+    }
+  }
+
+  public static void setLogicalTable(ZkHelixPropertyStore<ZNRecord> propertyStore, LogicalTable logicalTable) {
+    propertyStore.set(constructPropertyStorePathForLogical(logicalTable.getTableName()),
+        LogicalTableUtils.toZNRecord(logicalTable), AccessOption.PERSISTENT);
+  }
+
+  @Nullable
+  public static LogicalTable getLogicalTable(ZkHelixPropertyStore<ZNRecord> propertyStore, String tableName) {
+    try {
+      ZNRecord logicalTableZNRecord =
+          propertyStore.get(constructPropertyStorePathForLogical(tableName), null, AccessOption.PERSISTENT);
+      if (logicalTableZNRecord == null) {
+        return null;
+      }
+      return LogicalTableUtils.fromZNRecord(logicalTableZNRecord);
+    } catch (Exception e) {
+      LOGGER.error("Caught exception while getting logical table: {}", tableName, e);
       return null;
     }
   }
