@@ -19,11 +19,13 @@
 package org.apache.pinot.common.metadata;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -837,6 +839,22 @@ public class ZKMetadataProvider {
   public static void setLogicalTable(ZkHelixPropertyStore<ZNRecord> propertyStore, LogicalTable logicalTable) {
     propertyStore.set(constructPropertyStorePathForLogical(logicalTable.getTableName()),
         LogicalTableUtils.toZNRecord(logicalTable), AccessOption.PERSISTENT);
+  }
+
+  public static List<LogicalTable> getAllLogicalTables(ZkHelixPropertyStore<ZNRecord> propertyStore) {
+    List<ZNRecord> znRecords = propertyStore.getChildren(PROPERTYSTORE_LOGICAL_PREFIX, null, AccessOption.PERSISTENT);
+    if (znRecords != null) {
+      return znRecords.stream().map(znRecord -> {
+        try {
+          return LogicalTableUtils.fromZNRecord(znRecord);
+        } catch (IOException e) {
+          LOGGER.error("Caught exception while converting ZNRecord to LogicalTable: " + znRecord.getId(), e);
+          return null;
+        }
+      }).filter(Objects::nonNull).collect(Collectors.toList());
+    } else {
+      return Collections.emptyList();
+    }
   }
 
   @Nullable

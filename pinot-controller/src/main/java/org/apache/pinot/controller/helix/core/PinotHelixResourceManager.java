@@ -2204,13 +2204,8 @@ public class PinotHelixResourceManager {
   }
 
   public List<String> getLogicalTableNames() {
-    List<String> logicalTableNames = new ArrayList<>();
-    for (String resourceName : getAllResources()) {
-      if (resourceName.startsWith("logicalTables/")) {
-        logicalTableNames.add(resourceName.substring("logicalTables/".length()));
-      }
-    }
-    return logicalTableNames;
+    return ZKMetadataProvider.getAllLogicalTables(_propertyStore).stream().map(LogicalTable::getTableName)
+        .collect(Collectors.toList());
   }
 
   /**
