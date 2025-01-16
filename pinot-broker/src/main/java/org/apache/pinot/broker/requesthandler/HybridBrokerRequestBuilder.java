@@ -29,6 +29,7 @@ import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.metrics.BrokerQueryPhase;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.PinotQuery;
+import org.apache.pinot.common.request.QuerySource;
 import org.apache.pinot.core.query.optimizer.QueryOptimizer;
 import org.apache.pinot.core.routing.RoutingTable;
 import org.apache.pinot.core.routing.ServerRouteInfo;
@@ -165,6 +166,9 @@ public class HybridBrokerRequestBuilder {
     String rawTableName = TableNameBuilder.extractRawTableName(_tableName);
     Schema schema = _tableCache.getSchema(rawTableName);
 
+    PinotQuery serverPinotQuery = _serverPinotQuery.deepCopy();
+    serverPinotQuery.getDataSource().setTableName(rawTableName);
+
     // Get the tables hit by the request
     String offlineTableName = null;
     String realtimeTableName = null;
@@ -220,15 +224,15 @@ public class HybridBrokerRequestBuilder {
         BaseSingleStageBrokerRequestHandler.getHandlerContext(_disableGroovy, _useApproximateFunction,
             offlineTableConfig, realtimeTableConfig);
     if (handlerContext._disableGroovy) {
-      rejectGroovyQuery(_serverPinotQuery);
+      rejectGroovyQuery(serverPinotQuery);
     }
     if (handlerContext._useApproximateFunction) {
-      handleApproximateFunctionOverride(_serverPinotQuery);
+      handleApproximateFunctionOverride(serverPinotQuery);
     }
 
     // Validate the request
     try {
-      validateRequest(_serverPinotQuery, _queryResponseLimit);
+      validateRequest(serverPinotQuery, _queryResponseLimit);
     } catch (IllegalStateException e) {
       throw new Exception(QueryException.QUERY_VALIDATION_ERROR_CODE,
           "Caught exception while validating request " + _requestId + ": " + e.getMessage());
@@ -248,7 +252,7 @@ public class HybridBrokerRequestBuilder {
     }
     if (offlineTableName != null && realtimeTableName != null) {
       // Hybrid
-      PinotQuery offlinePinotQuery = _serverPinotQuery.deepCopy();
+      PinotQuery offlinePinotQuery = serverPinotQuery.deepCopy();
       offlinePinotQuery.getDataSource().setTableName(offlineTableName);
       attachTimeBoundary(offlinePinotQuery, timeBoundaryInfo, true);
       handleExpressionOverride(offlinePinotQuery, _tableCache.getExpressionOverrideMap(offlineTableName));
@@ -256,7 +260,7 @@ public class HybridBrokerRequestBuilder {
       _queryOptimizer.optimize(offlinePinotQuery, offlineTableConfig, schema);
       offlineBrokerRequest = CalciteSqlCompiler.convertToBrokerRequest(offlinePinotQuery);
 
-      PinotQuery realtimePinotQuery = _serverPinotQuery.deepCopy();
+      PinotQuery realtimePinotQuery = serverPinotQuery.deepCopy();
       realtimePinotQuery.getDataSource().setTableName(realtimeTableName);
       attachTimeBoundary(realtimePinotQuery, timeBoundaryInfo, false);
       handleExpressionOverride(realtimePinotQuery, _tableCache.getExpressionOverrideMap(realtimeTableName));
@@ -265,15 +269,21 @@ public class HybridBrokerRequestBuilder {
       realtimeBrokerRequest = CalciteSqlCompiler.convertToBrokerRequest(realtimePinotQuery);
     } else if (offlineTableName != null) {
       // OFFLINE only
-      handleExpressionOverride(_serverPinotQuery, _tableCache.getExpressionOverrideMap(offlineTableName));
-      handleTimestampIndexOverride(_serverPinotQuery, offlineTableConfig, _tableCache);
-      _queryOptimizer.optimize(_serverPinotQuery, offlineTableConfig, schema);
-      offlineBrokerRequest = _serverBrokerRequest;
+      handleExpressionOverride(serverPinotQuery, _tableCache.getExpressionOverrideMap(offlineTableName));
+      handleTimestampIndexOverride(serverPinotQuery, offlineTableConfig, _tableCache);
+      _queryOptimizer.optimize(serverPinotQuery, offlineTableConfig, schema);
+      offlineBrokerRequest = new BrokerRequest();
+      PinotQuery offlinePinotQuery = serverPinotQuery.deepCopy();
+      offlinePinotQuery.getDataSource().setTableName(offlineTableName);
+      offlineBrokerRequest.setPinotQuery(offlinePinotQuery);
+      QuerySource querySource = new QuerySource();
+      querySource.setTableName(offlineTableName);
+      offlineBrokerRequest.setQuerySource(querySource);
     } else {
       // REALTIME only
-      handleExpressionOverride(_serverPinotQuery, _tableCache.getExpressionOverrideMap(realtimeTableName));
-      handleTimestampIndexOverride(_serverPinotQuery, realtimeTableConfig, _tableCache);
-      _queryOptimizer.optimize(_serverPinotQuery, realtimeTableConfig, schema);
+      handleExpressionOverride(serverPinotQuery, _tableCache.getExpressionOverrideMap(realtimeTableName));
+      handleTimestampIndexOverride(serverPinotQuery, realtimeTableConfig, _tableCache);
+      _queryOptimizer.optimize(serverPinotQuery, realtimeTableConfig, schema);
       realtimeBrokerRequest = _serverBrokerRequest;
     }
 

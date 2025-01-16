@@ -108,7 +108,7 @@ public class SingleConnectionBrokerRequestHandler extends BaseSingleStageBrokerR
 
     String rawTableName = TableNameBuilder.extractRawTableName(serverBrokerRequest.getQuerySource().getTableName());
     long scatterGatherStartTimeNs = System.nanoTime();
-    AsyncQueryResponse asyncQueryResponse = _queryRouter.submitQuery(requestId, rawTableName, requestMap, timeoutMs,
+    AsyncQueryResponse asyncQueryResponse = _queryRouter.submitQuery(requestId, requestMap, timeoutMs,
         QueryOptionsUtils.isSkipUnavailableServers(originalBrokerRequest.getPinotQuery().getQueryOptions()));
     _failureDetector.notifyQuerySubmitted(asyncQueryResponse);
     Map<ServerRoutingInstance, ServerResponse> finalResponses = asyncQueryResponse.getFinalResponses();
