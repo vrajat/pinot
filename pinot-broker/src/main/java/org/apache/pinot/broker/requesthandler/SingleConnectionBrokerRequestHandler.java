@@ -38,6 +38,7 @@ import org.apache.pinot.common.exception.QueryException;
 import org.apache.pinot.common.metrics.BrokerMeter;
 import org.apache.pinot.common.metrics.BrokerQueryPhase;
 import org.apache.pinot.common.request.BrokerRequest;
+import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.QueryProcessingException;
 import org.apache.pinot.common.utils.config.QueryOptionsUtils;
@@ -94,6 +95,14 @@ public class SingleConnectionBrokerRequestHandler extends BaseSingleStageBrokerR
     _failureDetector.stop();
     _queryRouter.shutDown();
     _brokerReduceService.shutDown();
+  }
+
+  @Override
+  protected BrokerResponseNative processBrokerRequest(long requestId, BrokerRequest originalBrokerRequest,
+      BrokerRequest serverBrokerRequest, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs,
+      ServerStats serverStats, RequestContext requestContext)
+      throws Exception {
+    return null;
   }
 
   @Override

@@ -66,7 +66,7 @@ public class BrokerReduceServiceTest {
     Map<ServerRoutingInstance, DataTable> dataTableMap = new HashMap<>();
     int numInstances = 1000;
     for (int i = 0; i < numInstances; i++) {
-      ServerRoutingInstance instance = new ServerRoutingInstance("localhost", i, TableType.OFFLINE);
+      ServerRoutingInstance instance = new ServerRoutingInstance("localhost", i, "dummy_table", TableType.OFFLINE);
       dataTableMap.put(instance, dataTable);
     }
     long reduceTimeoutMs = 1;

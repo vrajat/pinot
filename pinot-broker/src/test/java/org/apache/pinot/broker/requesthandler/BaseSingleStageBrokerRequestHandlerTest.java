@@ -33,11 +33,13 @@ import org.apache.pinot.common.config.provider.TableCache;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.Expression;
+import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.common.request.PinotQuery;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.core.routing.RoutingTable;
 import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.core.transport.ServerInstance;
+import org.apache.pinot.core.transport.ServerRoutingInstance;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TenantConfig;
 import org.apache.pinot.spi.env.PinotConfiguration;
@@ -189,6 +191,14 @@ public class BaseSingleStageBrokerRequestHandlerTest {
 
           @Override
           public void shutDown() {
+          }
+
+          @Override
+          protected BrokerResponseNative processBrokerRequest(long requestId, BrokerRequest originalBrokerRequest,
+              BrokerRequest serverBrokerRequest, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs,
+              ServerStats serverStats, RequestContext requestContext)
+              throws Exception {
+            return null;
           }
 
           @Override

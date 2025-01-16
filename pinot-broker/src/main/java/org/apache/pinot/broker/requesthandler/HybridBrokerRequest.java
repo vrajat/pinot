@@ -1,0 +1,171 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.pinot.broker.requesthandler;
+
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.pinot.common.request.BrokerRequest;
+import org.apache.pinot.common.request.InstanceRequest;
+import org.apache.pinot.core.routing.ServerRouteInfo;
+import org.apache.pinot.core.transport.ServerInstance;
+import org.apache.pinot.core.transport.ServerRoutingInstance;
+import org.apache.pinot.spi.config.table.TableType;
+import org.apache.pinot.spi.trace.RequestContext;
+import org.apache.pinot.spi.utils.CommonConstants;
+
+
+public class HybridBrokerRequest {
+  public final static HybridBrokerRequest EMPTY =
+      new HybridBrokerRequest(-1, null, null, null, null, null, null, null, null, null, 0, -1, null);
+
+  private final long _requestId;
+  private final String _rawTableName;
+  private BrokerRequest _originalBrokerRequest;
+  private final BrokerRequest _serverBrokerRequest;
+  private final String _offlineTableName;
+  private final BrokerRequest _offlineBrokerRequest;
+  private final Map<ServerInstance, ServerRouteInfo> _offlineRoutingTable;
+  private final String _realtimeTableName;
+  private final BrokerRequest _realtimeBrokerRequest;
+  private final Map<ServerInstance, ServerRouteInfo> _realtimeRoutingTable;
+  private final int numPrunedSegments;
+  private final long _timeoutMs;
+  private final RequestContext _requestContext;
+
+  public HybridBrokerRequest(long requestId, String rawTableName, BrokerRequest originalBrokerRequest,
+      BrokerRequest serverBrokerRequest, String offlineTableName, BrokerRequest offlineBrokerRequest,
+      Map<ServerInstance, ServerRouteInfo> offlineRoutingTable, String realtimeTableName,
+      BrokerRequest realtimeBrokerRequest, Map<ServerInstance, ServerRouteInfo> realtimeRoutingTable,
+      int numPrunedSegments, long timeoutMs, RequestContext requestContext) {
+    this._requestId = requestId;
+    _rawTableName = rawTableName;
+    this._originalBrokerRequest = originalBrokerRequest;
+    this._serverBrokerRequest = serverBrokerRequest;
+    this._offlineTableName = offlineTableName;
+    this._offlineBrokerRequest = offlineBrokerRequest;
+    this._offlineRoutingTable = offlineRoutingTable;
+    this._realtimeTableName = realtimeTableName;
+    this._realtimeBrokerRequest = realtimeBrokerRequest;
+    this._realtimeRoutingTable = realtimeRoutingTable;
+    this.numPrunedSegments = numPrunedSegments;
+    this._timeoutMs = timeoutMs;
+    this._requestContext = requestContext;
+  }
+
+  // Getters and setters for each member variable
+  public long getRequestId() {
+    return _requestId;
+  }
+
+  public String getRawTableName() {
+    return _rawTableName;
+  }
+
+  public BrokerRequest getOriginalBrokerRequest() {
+    return _originalBrokerRequest;
+  }
+
+  public void setOriginalBrokerRequest(BrokerRequest originalBrokerRequest) {
+    this._originalBrokerRequest = originalBrokerRequest;
+  }
+
+  public BrokerRequest getServerBrokerRequest() {
+    return _serverBrokerRequest;
+  }
+
+  public String getOfflineTableName() {
+    return _offlineTableName;
+  }
+
+  public BrokerRequest getOfflineBrokerRequest() {
+    return _offlineBrokerRequest;
+  }
+
+  public Map<ServerInstance, ServerRouteInfo> getOfflineRoutingTable() {
+    return _offlineRoutingTable;
+  }
+
+  public String getRealtimeTableName() {
+    return _realtimeTableName;
+  }
+
+  public BrokerRequest getRealtimeBrokerRequest() {
+    return _realtimeBrokerRequest;
+  }
+
+  public Map<ServerInstance, ServerRouteInfo> getRealtimeRoutingTable() {
+    return _realtimeRoutingTable;
+  }
+
+  public int getNumPrunedSegments() {
+    return numPrunedSegments;
+  }
+
+  public long getTimeoutMs() {
+    return _timeoutMs;
+  }
+
+  public RequestContext getRequestContext() {
+    return _requestContext;
+  }
+
+  public Map<ServerRoutingInstance, InstanceRequest> getRequestMap() {
+    // Build map from server to request based on the routing table
+    Map<ServerRoutingInstance, InstanceRequest> requestMap = new HashMap<>();
+    if (_offlineBrokerRequest != null) {
+      assert _offlineRoutingTable != null;
+      for (Map.Entry<ServerInstance, ServerRouteInfo> entry : _offlineRoutingTable.entrySet()) {
+        ServerRoutingInstance serverRoutingInstance =
+            entry.getKey().toServerRoutingInstance(_rawTableName, TableType.OFFLINE);
+        InstanceRequest instanceRequest = getInstanceRequest(_requestId, _offlineBrokerRequest, entry.getValue());
+        requestMap.put(serverRoutingInstance, instanceRequest);
+      }
+    }
+    if (_realtimeBrokerRequest != null) {
+      assert _realtimeRoutingTable != null;
+      for (Map.Entry<ServerInstance, ServerRouteInfo> entry : _realtimeRoutingTable.entrySet()) {
+        ServerRoutingInstance serverRoutingInstance =
+            entry.getKey().toServerRoutingInstance(_rawTableName, TableType.REALTIME);
+        InstanceRequest instanceRequest = getInstanceRequest(_requestId, _realtimeBrokerRequest, entry.getValue());
+        requestMap.put(serverRoutingInstance, instanceRequest);
+      }
+    }
+    return requestMap;
+  }
+
+  public static InstanceRequest getInstanceRequest(long requestId, BrokerRequest brokerRequest,
+      ServerRouteInfo segments) {
+    InstanceRequest instanceRequest = new InstanceRequest();
+    instanceRequest.setRequestId(requestId);
+    instanceRequest.setQuery(brokerRequest);
+    Map<String, String> queryOptions = brokerRequest.getPinotQuery().getQueryOptions();
+    if (queryOptions != null) {
+      instanceRequest.setEnableTrace(Boolean.parseBoolean(queryOptions.get(CommonConstants.Broker.Request.TRACE)));
+    }
+    instanceRequest.setSearchSegments(segments.getSegments());
+    if (CollectionUtils.isNotEmpty(segments.getOptionalSegments())) {
+      // Don't set this field, i.e. leave it as null, if there is no optional segment at all, to be more backward
+      // compatible, as there are places like in multi-stage query engine where this field is not set today when
+      // creating the InstanceRequest.
+      instanceRequest.setOptionalSegments(segments.getOptionalSegments());
+    }
+    return instanceRequest;
+  }
+}

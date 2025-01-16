@@ -48,7 +48,8 @@ public class StreamingReduceServiceTest {
     RuntimeException innerException = new RuntimeException(exceptionMessage);
     when(mockedResponse.next()).thenThrow(innerException);
     ExecutorService threadPoolService = Executors.newFixedThreadPool(1);
-    ServerRoutingInstance routingInstance = new ServerRoutingInstance("localhost", 9527, TableType.OFFLINE);
+    ServerRoutingInstance routingInstance =
+        new ServerRoutingInstance("localhost", 9527, "dummy_table", TableType.OFFLINE);
     // supposedly we can use TestNG's annotation like @Test(expectedExceptions = { IOException.class }) to verify
     // here we hope to verify deeper to make sure the thrown exception is nested inside the exception
     assertTrue(verifyException(() -> {
@@ -77,7 +78,8 @@ public class StreamingReduceServiceTest {
       }
     });
     final ExecutorService threadPoolService = Executors.newFixedThreadPool(1);
-    final ServerRoutingInstance routingInstance = new ServerRoutingInstance("localhost", 9527, TableType.OFFLINE);
+    final ServerRoutingInstance routingInstance =
+        new ServerRoutingInstance("localhost", 9527, "dummy_table", TableType.OFFLINE);
     //We cannot use TestNG's annotation like @Test(expectedExceptions = { IOException.class }) to verify
     // because the Exception we hope to verify is nested inside the final exception.
     assertTrue(verifyException(() -> {

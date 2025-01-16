@@ -33,6 +33,7 @@ import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.config.provider.TableCache;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.request.BrokerRequest;
+import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
 import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
@@ -71,6 +72,14 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
     super.shutDown();
     _streamingQueryClient.shutdown();
     _streamingReduceService.shutDown();
+  }
+
+  @Override
+  protected BrokerResponseNative processBrokerRequest(long requestId, BrokerRequest originalBrokerRequest,
+      BrokerRequest serverBrokerRequest, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs,
+      ServerStats serverStats, RequestContext requestContext)
+      throws Exception {
+    return null;
   }
 
   @Override
@@ -118,7 +127,7 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
       Iterator<Server.ServerResponse> streamingResponse = _streamingQueryClient.submit(serverHost, port,
           new GrpcRequestBuilder().setRequestId(requestId).setBrokerId(_brokerId).setEnableTrace(trace)
               .setEnableStreaming(true).setBrokerRequest(brokerRequest).setSegments(segments).build());
-      responseMap.put(serverInstance.toServerRoutingInstance(tableType, ServerInstance.RoutingType.GRPC),
+      responseMap.put(serverInstance.toServerRoutingInstance("dummy_table_name", tableType, ServerInstance.RoutingType.GRPC),
           streamingResponse);
     }
   }
