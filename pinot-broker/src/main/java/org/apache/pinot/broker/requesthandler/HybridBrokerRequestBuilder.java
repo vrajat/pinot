@@ -313,7 +313,7 @@ public class HybridBrokerRequestBuilder {
       // NOTE: Routing table might be null if table is just removed
       RoutingTable routingTable = null;
       if (!offlineTableDisabled) {
-        routingTable = _routingManager.getRoutingTable(offlineBrokerRequest, _requestId);
+        routingTable = _routingManager.getRoutingTable(offlineBrokerRequest, offlineTableName, _requestId);
       }
       if (routingTable != null) {
         unavailableSegments.addAll(routingTable.getUnavailableSegments());
@@ -333,7 +333,7 @@ public class HybridBrokerRequestBuilder {
       // NOTE: Routing table might be null if table is just removed
       RoutingTable routingTable = null;
       if (!realtimeTableDisabled) {
-        routingTable = _routingManager.getRoutingTable(realtimeBrokerRequest, _requestId);
+        routingTable = _routingManager.getRoutingTable(realtimeBrokerRequest, offlineTableName, _requestId);
       }
       if (routingTable != null) {
         unavailableSegments.addAll(routingTable.getUnavailableSegments());

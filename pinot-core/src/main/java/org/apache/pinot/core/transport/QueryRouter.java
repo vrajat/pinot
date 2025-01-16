@@ -86,6 +86,40 @@ public class QueryRouter {
     _serverRoutingStatsManager = serverRoutingStatsManager;
   }
 
+  public AsyncQueryResponse submitQuery(long requestId, String rawTableName, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs, boolean skipUnavailableServers) {
+    // Create the asynchronous query response with the request map
+    AsyncQueryResponse asyncQueryResponse =
+        new AsyncQueryResponse(this, requestId, requestMap.keySet(), System.currentTimeMillis(), timeoutMs,
+            _serverRoutingStatsManager);
+    _asyncQueryResponseMap.put(requestId, asyncQueryResponse);
+    for (Map.Entry<ServerRoutingInstance, InstanceRequest> entry : requestMap.entrySet()) {
+      ServerRoutingInstance serverRoutingInstance = new ServerRoutingInstance(entry.getKey(), _serverChannelsTls != null);
+      ServerChannels serverChannels = serverRoutingInstance.isTlsEnabled() ? _serverChannelsTls : _serverChannels;
+      try {
+        InstanceRequest instanceRequest = entry.getValue();
+        instanceRequest.setBrokerId(_brokerId);
+        serverChannels.sendRequest(rawTableName, asyncQueryResponse, serverRoutingInstance, instanceRequest, timeoutMs);
+        asyncQueryResponse.markRequestSubmitted(serverRoutingInstance);
+      } catch (TimeoutException e) {
+        if (ServerChannels.CHANNEL_LOCK_TIMEOUT_MSG.equals(e.getMessage())) {
+          _brokerMetrics.addMeteredTableValue(rawTableName, BrokerMeter.REQUEST_CHANNEL_LOCK_TIMEOUT_EXCEPTIONS, 1);
+        }
+        markQueryFailed(requestId, serverRoutingInstance, asyncQueryResponse, e);
+        break;
+      } catch (Exception e) {
+        _brokerMetrics.addMeteredTableValue(rawTableName, BrokerMeter.REQUEST_SEND_EXCEPTIONS, 1);
+        if (skipUnavailableServers) {
+          asyncQueryResponse.skipServerResponse();
+        } else {
+          markQueryFailed(requestId, serverRoutingInstance, asyncQueryResponse, e);
+          break;
+        }
+      }
+    }
+
+    return asyncQueryResponse;
+  }
+
   public AsyncQueryResponse submitQuery(long requestId, String rawTableName,
       @Nullable BrokerRequest offlineBrokerRequest,
       @Nullable Map<ServerInstance, ServerRouteInfo> offlineRoutingTable,

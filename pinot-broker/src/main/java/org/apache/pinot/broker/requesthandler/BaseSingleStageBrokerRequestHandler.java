@@ -977,7 +977,8 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
           .setRequestId(requestId).setQuery(query).setRequestContext(requestContext)
           .setServerPinotQuery(serverPinotQuery).setQueryOptimizer(_queryOptimizer).setRoutingManager(_routingManager)
           .setDisableGroovy(_disableGroovy).setUseApproximateFunction(_useApproximateFunction)
-          .setServerBrokerRequest(serverBrokerRequest);
+          .setServerBrokerRequest(serverBrokerRequest).setQueryResponseLimit(_queryResponseLimit)
+          .setConfiguration(_config);
 
       try {
         HybridBrokerRequest request = builder.build();

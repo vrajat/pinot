@@ -134,6 +134,19 @@ public class TableCache implements PinotConfigProvider {
       }
     }
 
+    synchronized (_zkLogicalTableChangeListener) {
+      // Subscribe child changes before reading the data to avoid missing changes
+      _propertyStore.subscribeChildChanges(LOGICAL_TABLE_PARENT_PATH, _zkLogicalTableChangeListener);
+
+      List<String> tables = _propertyStore.getChildNames(LOGICAL_TABLE_PARENT_PATH, AccessOption.PERSISTENT);
+      if (CollectionUtils.isNotEmpty(tables)) {
+        List<String> pathsToAdd = new ArrayList<>(tables.size());
+        for (String rawTableName : tables) {
+          pathsToAdd.add(LOGICAL_TABLE_PATH_PREFIX + rawTableName);
+        }
+        addLogicalTables(pathsToAdd);
+      }
+    }
     LOGGER.info("Initialized TableCache with IgnoreCase: {}", ignoreCase);
   }
 

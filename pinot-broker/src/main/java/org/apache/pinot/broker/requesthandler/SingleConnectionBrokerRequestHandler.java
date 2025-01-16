@@ -102,7 +102,77 @@ public class SingleConnectionBrokerRequestHandler extends BaseSingleStageBrokerR
       BrokerRequest serverBrokerRequest, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs,
       ServerStats serverStats, RequestContext requestContext)
       throws Exception {
-    return null;
+    if (requestContext.isSampledRequest()) {
+      serverBrokerRequest.getPinotQuery().putToQueryOptions(CommonConstants.Broker.Request.TRACE, "true");
+    }
+
+    String rawTableName = TableNameBuilder.extractRawTableName(serverBrokerRequest.getQuerySource().getTableName());
+    long scatterGatherStartTimeNs = System.nanoTime();
+    AsyncQueryResponse asyncQueryResponse = _queryRouter.submitQuery(requestId, rawTableName, requestMap, timeoutMs,
+        QueryOptionsUtils.isSkipUnavailableServers(originalBrokerRequest.getPinotQuery().getQueryOptions()));
+    _failureDetector.notifyQuerySubmitted(asyncQueryResponse);
+    Map<ServerRoutingInstance, ServerResponse> finalResponses = asyncQueryResponse.getFinalResponses();
+    if (asyncQueryResponse.getStatus() == QueryResponse.Status.TIMED_OUT) {
+      BrokerMeter meter = QueryOptionsUtils.isSecondaryWorkload(serverBrokerRequest.getPinotQuery().getQueryOptions())
+          ? BrokerMeter.SECONDARY_WORKLOAD_BROKER_RESPONSES_WITH_TIMEOUTS : BrokerMeter.BROKER_RESPONSES_WITH_TIMEOUTS;
+      _brokerMetrics.addMeteredTableValue(rawTableName, meter, 1);
+    }
+    _failureDetector.notifyQueryFinished(asyncQueryResponse);
+    _brokerMetrics.addPhaseTiming(rawTableName, BrokerQueryPhase.SCATTER_GATHER,
+        System.nanoTime() - scatterGatherStartTimeNs);
+    // TODO Use scatterGatherStats as serverStats
+    serverStats.setServerStats(asyncQueryResponse.getServerStats());
+
+    int numServersQueried = finalResponses.size();
+    long totalResponseSize = 0;
+    Map<ServerRoutingInstance, DataTable> dataTableMap = Maps.newHashMapWithExpectedSize(numServersQueried);
+    List<ServerRoutingInstance> serversNotResponded = new ArrayList<>();
+    for (Map.Entry<ServerRoutingInstance, ServerResponse> entry : finalResponses.entrySet()) {
+      ServerResponse serverResponse = entry.getValue();
+      DataTable dataTable = serverResponse.getDataTable();
+      if (dataTable != null) {
+        dataTableMap.put(entry.getKey(), dataTable);
+        totalResponseSize += serverResponse.getResponseSize();
+      } else {
+        serversNotResponded.add(entry.getKey());
+      }
+    }
+    int numServersResponded = dataTableMap.size();
+
+    long reduceStartTimeNs = System.nanoTime();
+    long reduceTimeoutMs = timeoutMs - TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - scatterGatherStartTimeNs);
+    BrokerResponseNative brokerResponse =
+        _brokerReduceService.reduceOnDataTable(originalBrokerRequest, serverBrokerRequest, dataTableMap,
+            reduceTimeoutMs, _brokerMetrics);
+    long reduceTimeNanos = System.nanoTime() - reduceStartTimeNs;
+    _brokerMetrics.addPhaseTiming(rawTableName, BrokerQueryPhase.REDUCE, reduceTimeNanos);
+
+    brokerResponse.setNumServersQueried(numServersQueried);
+    brokerResponse.setNumServersResponded(numServersResponded);
+    brokerResponse.setBrokerReduceTimeMs(TimeUnit.NANOSECONDS.toMillis(reduceTimeNanos));
+
+    Exception brokerRequestSendException = asyncQueryResponse.getException();
+    if (brokerRequestSendException != null) {
+      String errorMsg = QueryException.getTruncatedStackTrace(brokerRequestSendException);
+      brokerResponse.addException(
+          new QueryProcessingException(QueryException.BROKER_REQUEST_SEND_ERROR_CODE, errorMsg));
+    }
+    int numServersNotResponded = serversNotResponded.size();
+    if (numServersNotResponded != 0) {
+      brokerResponse.addException(new QueryProcessingException(QueryException.SERVER_NOT_RESPONDING_ERROR_CODE,
+          String.format("%d servers %s not responded", numServersNotResponded, serversNotResponded)));
+
+      BrokerMeter meter = QueryOptionsUtils.isSecondaryWorkload(serverBrokerRequest.getPinotQuery().getQueryOptions())
+          ? BrokerMeter.SECONDARY_WORKLOAD_BROKER_RESPONSES_WITH_PARTIAL_SERVERS_RESPONDED
+          : BrokerMeter.BROKER_RESPONSES_WITH_PARTIAL_SERVERS_RESPONDED;
+      _brokerMetrics.addMeteredTableValue(rawTableName, meter, 1);
+    }
+    if (brokerResponse.getExceptionsSize() > 0) {
+      _brokerMetrics.addMeteredTableValue(rawTableName, BrokerMeter.BROKER_RESPONSES_WITH_PROCESSING_EXCEPTIONS, 1);
+    }
+    _brokerMetrics.addMeteredTableValue(rawTableName, BrokerMeter.TOTAL_SERVER_RESPONSE_SIZE, totalResponseSize);
+
+    return brokerResponse;
   }
 
   @Override
