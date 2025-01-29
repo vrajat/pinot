@@ -233,9 +233,9 @@ public abstract class BaseQueriesTest {
     try {
       // For multi-threaded BrokerReduceService, we cannot reuse the same data-table
       byte[] serializedResponse = instanceResponse.toDataTable().toBytes();
-      dataTableMap.put(new ServerRoutingInstance("localhost", 1234, "dummy_table", TableType.OFFLINE),
+      dataTableMap.put(new ServerRoutingInstance("localhost", 1234, TableType.OFFLINE),
           DataTableFactory.getDataTable(serializedResponse));
-      dataTableMap.put(new ServerRoutingInstance("localhost", 1234, "dummy_table", TableType.REALTIME),
+      dataTableMap.put(new ServerRoutingInstance("localhost", 1234, TableType.REALTIME),
           DataTableFactory.getDataTable(serializedResponse));
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -347,9 +347,9 @@ public abstract class BaseQueriesTest {
       // For multi-threaded BrokerReduceService, we cannot reuse the same data-table
       byte[] serializedResponse1 = instanceResponse1.toDataTable().toBytes();
       byte[] serializedResponse2 = instanceResponse2.toDataTable().toBytes();
-      dataTableMap.put(new ServerRoutingInstance("localhost", 1234, "dummy_table", TableType.OFFLINE),
+      dataTableMap.put(new ServerRoutingInstance("localhost", 1234, TableType.OFFLINE),
           DataTableFactory.getDataTable(serializedResponse1));
-      dataTableMap.put(new ServerRoutingInstance("localhost", 1234, "dummy_table", TableType.REALTIME),
+      dataTableMap.put(new ServerRoutingInstance("localhost", 1234, TableType.REALTIME),
           DataTableFactory.getDataTable(serializedResponse2));
     } catch (Exception e) {
       throw new RuntimeException(e);
