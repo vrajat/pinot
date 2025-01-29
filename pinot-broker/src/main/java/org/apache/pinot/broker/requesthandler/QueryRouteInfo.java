@@ -18,17 +18,11 @@
  */
 package org.apache.pinot.broker.requesthandler;
 
-import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.pinot.common.request.BrokerRequest;
-import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.core.transport.ServerInstance;
-import org.apache.pinot.core.transport.ServerRoutingInstance;
-import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.trace.RequestContext;
-import org.apache.pinot.spi.utils.CommonConstants;
 
 
 public class QueryRouteInfo {
@@ -124,48 +118,5 @@ public class QueryRouteInfo {
 
   public RequestContext getRequestContext() {
     return _requestContext;
-  }
-
-  public Map<ServerRoutingInstance, InstanceRequest> getRequestMap() {
-    // Build map from server to request based on the routing table
-    Map<ServerRoutingInstance, InstanceRequest> requestMap = new HashMap<>();
-    if (_offlineBrokerRequest != null) {
-      assert _offlineRoutingTable != null;
-      for (Map.Entry<ServerInstance, ServerRouteInfo> entry : _offlineRoutingTable.entrySet()) {
-        ServerRoutingInstance serverRoutingInstance =
-            entry.getKey().toServerRoutingInstance(_rawTableName, TableType.OFFLINE);
-        InstanceRequest instanceRequest = getInstanceRequest(_requestId, _offlineBrokerRequest, entry.getValue());
-        requestMap.put(serverRoutingInstance, instanceRequest);
-      }
-    }
-    if (_realtimeBrokerRequest != null) {
-      assert _realtimeRoutingTable != null;
-      for (Map.Entry<ServerInstance, ServerRouteInfo> entry : _realtimeRoutingTable.entrySet()) {
-        ServerRoutingInstance serverRoutingInstance =
-            entry.getKey().toServerRoutingInstance(_rawTableName, TableType.REALTIME);
-        InstanceRequest instanceRequest = getInstanceRequest(_requestId, _realtimeBrokerRequest, entry.getValue());
-        requestMap.put(serverRoutingInstance, instanceRequest);
-      }
-    }
-    return requestMap;
-  }
-
-  public static InstanceRequest getInstanceRequest(long requestId, BrokerRequest brokerRequest,
-      ServerRouteInfo segments) {
-    InstanceRequest instanceRequest = new InstanceRequest();
-    instanceRequest.setRequestId(requestId);
-    instanceRequest.setQuery(brokerRequest);
-    Map<String, String> queryOptions = brokerRequest.getPinotQuery().getQueryOptions();
-    if (queryOptions != null) {
-      instanceRequest.setEnableTrace(Boolean.parseBoolean(queryOptions.get(CommonConstants.Broker.Request.TRACE)));
-    }
-    instanceRequest.setSearchSegments(segments.getSegments());
-    if (CollectionUtils.isNotEmpty(segments.getOptionalSegments())) {
-      // Don't set this field, i.e. leave it as null, if there is no optional segment at all, to be more backward
-      // compatible, as there are places like in multi-stage query engine where this field is not set today when
-      // creating the InstanceRequest.
-      instanceRequest.setOptionalSegments(segments.getOptionalSegments());
-    }
-    return instanceRequest;
   }
 }

@@ -126,31 +126,25 @@ public final class ServerInstance {
 
   // Does not require TLS until all servers guaranteed to be on TLS
   @Deprecated
-  public ServerRoutingInstance toServerRoutingInstance(String rawTableName, TableType tableType,
-      boolean preferNettyTls) {
+  public ServerRoutingInstance toServerRoutingInstance(TableType tableType, boolean preferNettyTls) {
     if (preferNettyTls && _nettyTlsPort > 0) {
-      return new ServerRoutingInstance(_instanceId, _hostname, _nettyTlsPort, tableType, rawTableName, true);
+      return new ServerRoutingInstance(_instanceId, _hostname, _nettyTlsPort, tableType, true);
     } else {
-      return new ServerRoutingInstance(_instanceId, _hostname, _port, rawTableName, tableType);
+      return new ServerRoutingInstance(_instanceId, _hostname, _port, tableType);
     }
   }
 
-  public ServerRoutingInstance toServerRoutingInstance(String rawTableName, TableType tableType) {
-    return toServerRoutingInstance(rawTableName, tableType, RoutingType.NETTY);
-  }
-
-  public ServerRoutingInstance toServerRoutingInstance(String rawTableName, TableType tableType,
-      RoutingType routingType) {
+  public ServerRoutingInstance toServerRoutingInstance(TableType tableType, RoutingType routingType) {
     switch (routingType) {
       case NETTY:
         Preconditions.checkState(_port > 0, "Netty port is not configured for server: %s", _instanceId);
-        return new ServerRoutingInstance(_instanceId, _hostname, _port, rawTableName, tableType);
+        return new ServerRoutingInstance(_instanceId, _hostname, _port, tableType);
       case GRPC:
         Preconditions.checkState(_grpcPort > 0, "GRPC port is not configured for server: %s", _instanceId);
-        return new ServerRoutingInstance(_instanceId, _hostname, _grpcPort, rawTableName, tableType);
+        return new ServerRoutingInstance(_instanceId, _hostname, _grpcPort, tableType);
       case NETTY_TLS:
         Preconditions.checkState(_nettyTlsPort > 0, "Netty TLS port is not configured for server: %s", _instanceId);
-        return new ServerRoutingInstance(_instanceId, _hostname, _nettyTlsPort, tableType, rawTableName, true);
+        return new ServerRoutingInstance(_instanceId, _hostname, _nettyTlsPort, tableType, true);
       default:
         throw new IllegalStateException("Unsupported routing type: " + routingType);
     }

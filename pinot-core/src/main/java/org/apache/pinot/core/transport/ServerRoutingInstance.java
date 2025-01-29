@@ -43,30 +43,23 @@ public final class ServerRoutingInstance {
   private final String _hostname;
   private final int _port;
   private final TableType _tableType;
-  private final String _rawTableName;
   private final boolean _tlsEnabled;
 
-  public ServerRoutingInstance(String instanceId, String hostname, int port, TableType tableType, String rawTableName,
-      boolean tlsEnabled) {
+  public ServerRoutingInstance(String instanceId, String hostname, int port, TableType tableType, boolean tlsEnabled) {
     _instanceId = instanceId;
     _hostname = hostname;
     _port = port;
     _tableType = tableType;
-    _rawTableName = rawTableName;
     _tlsEnabled = tlsEnabled;
   }
 
-  public ServerRoutingInstance(String instanceId, String hostname, int port, String rawTableName, TableType tableType) {
-    this(instanceId, hostname, port, tableType, rawTableName, false);
+  public ServerRoutingInstance(String instanceId, String hostname, int port, TableType tableType) {
+    this(instanceId, hostname, port, tableType, false);
   }
 
   @VisibleForTesting
-  public ServerRoutingInstance(String hostname, int port, String rawTableName, TableType tableType) {
-    this(Helix.PREFIX_OF_SERVER_INSTANCE + hostname + "_" + port, hostname, port, rawTableName, tableType);
-  }
-
-  public ServerRoutingInstance(ServerRoutingInstance other, boolean preferTls) {
-    this(other._instanceId, other._hostname, other._port, other._tableType, other._rawTableName, preferTls);
+  public ServerRoutingInstance(String hostname, int port, TableType tableType) {
+    this(Helix.PREFIX_OF_SERVER_INSTANCE + hostname + "_" + port, hostname, port, tableType);
   }
 
   public String getInstanceId() {
@@ -83,10 +76,6 @@ public final class ServerRoutingInstance {
 
   public TableType getTableType() {
     return _tableType;
-  }
-
-  public String getRawTableName() {
-    return _rawTableName;
   }
 
   public String getShortName() {
@@ -116,16 +105,14 @@ public final class ServerRoutingInstance {
     ServerRoutingInstance that = (ServerRoutingInstance) o;
     // NOTE: Only check hostname, port and tableType for performance concern because they can identify a routing
     //       instance within the same query
-    return _hostname.equals(that._hostname) && _port == that._port && _rawTableName.equals(that._rawTableName)
-        && _tableType == that._tableType;
+    return _hostname.equals(that._hostname) && _port == that._port && _tableType == that._tableType;
   }
 
   @Override
   public int hashCode() {
     // NOTE: Only check hostname, port and tableType for performance concern because they can identify a routing
     //       instance within the same query
-    return 31 * 31 * _hostname.hashCode() + 31 * Integer.hashCode(_port) + _rawTableName.hashCode()
-        + _tableType.hashCode();
+    return 31 * 31 * _hostname.hashCode() + 31 * Integer.hashCode(_port) + _tableType.hashCode();
   }
 
   @Override

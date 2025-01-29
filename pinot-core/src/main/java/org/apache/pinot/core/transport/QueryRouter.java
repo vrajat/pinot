@@ -86,40 +86,6 @@ public class QueryRouter {
     _serverRoutingStatsManager = serverRoutingStatsManager;
   }
 
-  public AsyncQueryResponse submitQuery(long requestId, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs, boolean skipUnavailableServers) {
-    // Create the asynchronous query response with the request map
-    AsyncQueryResponse asyncQueryResponse =
-        new AsyncQueryResponse(this, requestId, requestMap.keySet(), System.currentTimeMillis(), timeoutMs,
-            _serverRoutingStatsManager);
-    _asyncQueryResponseMap.put(requestId, asyncQueryResponse);
-    for (Map.Entry<ServerRoutingInstance, InstanceRequest> entry : requestMap.entrySet()) {
-      ServerRoutingInstance serverRoutingInstance = new ServerRoutingInstance(entry.getKey(), _serverChannelsTls != null);
-      ServerChannels serverChannels = serverRoutingInstance.isTlsEnabled() ? _serverChannelsTls : _serverChannels;
-      try {
-        InstanceRequest instanceRequest = entry.getValue();
-        instanceRequest.setBrokerId(_brokerId);
-        serverChannels.sendRequest(serverRoutingInstance.getRawTableName(), asyncQueryResponse, serverRoutingInstance, instanceRequest, timeoutMs);
-        asyncQueryResponse.markRequestSubmitted(serverRoutingInstance);
-      } catch (TimeoutException e) {
-        if (ServerChannels.CHANNEL_LOCK_TIMEOUT_MSG.equals(e.getMessage())) {
-          _brokerMetrics.addMeteredTableValue(serverRoutingInstance.getRawTableName(), BrokerMeter.REQUEST_CHANNEL_LOCK_TIMEOUT_EXCEPTIONS, 1);
-        }
-        markQueryFailed(requestId, serverRoutingInstance, asyncQueryResponse, e);
-        break;
-      } catch (Exception e) {
-        _brokerMetrics.addMeteredTableValue(serverRoutingInstance.getRawTableName(), BrokerMeter.REQUEST_SEND_EXCEPTIONS, 1);
-        if (skipUnavailableServers) {
-          asyncQueryResponse.skipServerResponse();
-        } else {
-          markQueryFailed(requestId, serverRoutingInstance, asyncQueryResponse, e);
-          break;
-        }
-      }
-    }
-
-    return asyncQueryResponse;
-  }
-
   public AsyncQueryResponse submitQuery(long requestId, String rawTableName,
       @Nullable BrokerRequest offlineBrokerRequest,
       @Nullable Map<ServerInstance, ServerRouteInfo> offlineRoutingTable,
@@ -139,7 +105,7 @@ public class QueryRouter {
       assert offlineRoutingTable != null;
       for (Map.Entry<ServerInstance, ServerRouteInfo> entry : offlineRoutingTable.entrySet()) {
         ServerRoutingInstance serverRoutingInstance =
-            entry.getKey().toServerRoutingInstance("dummy_table", TableType.OFFLINE, preferTls);
+            entry.getKey().toServerRoutingInstance(TableType.OFFLINE, preferTls);
         InstanceRequest instanceRequest = getInstanceRequest(requestId, offlineBrokerRequest, entry.getValue());
         requestMap.put(serverRoutingInstance, instanceRequest);
       }
@@ -148,7 +114,7 @@ public class QueryRouter {
       assert realtimeRoutingTable != null;
       for (Map.Entry<ServerInstance, ServerRouteInfo> entry : realtimeRoutingTable.entrySet()) {
         ServerRoutingInstance serverRoutingInstance =
-            entry.getKey().toServerRoutingInstance("dummy_table", TableType.REALTIME, preferTls);
+            entry.getKey().toServerRoutingInstance(TableType.REALTIME, preferTls);
         InstanceRequest instanceRequest = getInstanceRequest(requestId, realtimeBrokerRequest, entry.getValue());
         requestMap.put(serverRoutingInstance, instanceRequest);
       }
@@ -209,9 +175,9 @@ public class QueryRouter {
   public boolean connect(ServerInstance serverInstance) {
     try {
       if (_serverChannelsTls != null) {
-        _serverChannelsTls.connect(serverInstance.toServerRoutingInstance("dummy_table", TableType.OFFLINE, true));
+        _serverChannelsTls.connect(serverInstance.toServerRoutingInstance(TableType.OFFLINE, true));
       } else {
-        _serverChannels.connect(serverInstance.toServerRoutingInstance("dummy_table", TableType.OFFLINE, false));
+        _serverChannels.connect(serverInstance.toServerRoutingInstance(TableType.OFFLINE, false));
       }
       return true;
     } catch (Exception e) {

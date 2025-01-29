@@ -70,7 +70,6 @@ import org.apache.pinot.common.request.Expression;
 import org.apache.pinot.common.request.ExpressionType;
 import org.apache.pinot.common.request.Function;
 import org.apache.pinot.common.request.Identifier;
-import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.common.request.Literal;
 import org.apache.pinot.common.request.PinotQuery;
 import org.apache.pinot.common.response.BrokerResponse;
@@ -90,7 +89,6 @@ import org.apache.pinot.core.routing.RoutingTable;
 import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.core.routing.TimeBoundaryInfo;
 import org.apache.pinot.core.transport.ServerInstance;
-import org.apache.pinot.core.transport.ServerRoutingInstance;
 import org.apache.pinot.core.util.GapfillUtils;
 import org.apache.pinot.query.parser.utils.ParserUtils;
 import org.apache.pinot.spi.auth.AuthorizationResult;
@@ -1052,17 +1050,29 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
     ServerStats serverStats = new ServerStats();
     BrokerResponseNative brokerResponse;
 
-    Map<ServerRoutingInstance, InstanceRequest> requestMap = new HashMap<>();
-
     int numPrunedSegmentsTotal = 0;
+    Map<ServerInstance, ServerRouteInfo> compositeOfflineRoutingTable = new HashMap<>();
+    Map<ServerInstance, ServerRouteInfo> compositeRealtimeRoutingTable = new HashMap<>();
     for (QueryRouteInfo request : brokerRequests) {
-      requestMap.putAll(request.getRequestMap());
+      if (request.getOfflineRoutingTable() != null) {
+        for (Map.Entry<ServerInstance, ServerRouteInfo> entry : request.getOfflineRoutingTable().entrySet()) {
+          compositeOfflineRoutingTable.computeIfAbsent(entry.getKey(), v -> new ServerRouteInfo());
+          compositeOfflineRoutingTable.get(entry.getKey()).merge(entry.getValue());
+        }
+      }
+
+      if (request.getRealtimeRoutingTable() != null) {
+        for (Map.Entry<ServerInstance, ServerRouteInfo> entry : request.getRealtimeRoutingTable().entrySet()) {
+          compositeRealtimeRoutingTable.computeIfAbsent(entry.getKey(), v -> new ServerRouteInfo());
+          compositeRealtimeRoutingTable.get(entry.getKey()).merge(entry.getValue());
+        }
+      }
       numPrunedSegmentsTotal += request.getNumPrunedSegments();
     }
 
-    brokerResponse =
-        processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, requestMap, remainingTimeMs, serverStats,
-            requestContext);
+    brokerResponse = processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, serverBrokerRequest,
+        compositeOfflineRoutingTable, serverBrokerRequest, compositeRealtimeRoutingTable, remainingTimeMs,
+        serverStats, requestContext);
 
     brokerResponse.setTablesQueried(Set.of(logicalTable.getTableName()));
 
@@ -2146,11 +2156,6 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
       @Nullable BrokerRequest realtimeBrokerRequest,
       @Nullable Map<ServerInstance, ServerRouteInfo> realtimeRoutingTable, long timeoutMs, ServerStats serverStats,
       RequestContext requestContext)
-      throws Exception;
-
-  protected abstract BrokerResponseNative processBrokerRequest(long requestId, BrokerRequest originalBrokerRequest,
-      BrokerRequest serverBrokerRequest, Map<ServerRoutingInstance, InstanceRequest> requestMap, long timeoutMs,
-      ServerStats serverStats, RequestContext requestContext)
       throws Exception;
 
   private String getGlobalQueryId(long requestId) {
