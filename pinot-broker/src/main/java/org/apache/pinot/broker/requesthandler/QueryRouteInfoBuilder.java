@@ -49,8 +49,8 @@ import org.slf4j.LoggerFactory;
 import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.*;
 
 
-public class HybridBrokerRequestBuilder {
-  private static final Logger LOGGER = LoggerFactory.getLogger(HybridBrokerRequestBuilder.class);
+public class QueryRouteInfoBuilder {
+  private static final Logger LOGGER = LoggerFactory.getLogger(QueryRouteInfoBuilder.class);
 
   public static class Exception extends java.lang.Exception {
     private final int errorCode;
@@ -81,87 +81,87 @@ public class HybridBrokerRequestBuilder {
   private PinotConfiguration _configuration;
   private int MAX_UNAVAILABLE_SEGMENTS_TO_PRINT_IN_QUERY_EXCEPTION;
 
-  HybridBrokerRequestBuilder() {
+  QueryRouteInfoBuilder() {
 
   }
 
-  public HybridBrokerRequestBuilder setTableCache(TableCache tableCache) {
+  public QueryRouteInfoBuilder setTableCache(TableCache tableCache) {
     _tableCache = tableCache;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setBrokerMetrics(BrokerMetrics brokerMetrics) {
+  public QueryRouteInfoBuilder setBrokerMetrics(BrokerMetrics brokerMetrics) {
     _brokerMetrics = brokerMetrics;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setRequestId(long requestId) {
+  public QueryRouteInfoBuilder setRequestId(long requestId) {
     _requestId = requestId;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setQuery(String query) {
+  public QueryRouteInfoBuilder setQuery(String query) {
     _query = query;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setRequestContext(RequestContext requestContext) {
+  public QueryRouteInfoBuilder setRequestContext(RequestContext requestContext) {
     _requestContext = requestContext;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setTableName(String tableName) {
+  public QueryRouteInfoBuilder setTableName(String tableName) {
     _tableName = tableName;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setServerPinotQuery(PinotQuery serverPinotQuery) {
+  public QueryRouteInfoBuilder setServerPinotQuery(PinotQuery serverPinotQuery) {
     _serverPinotQuery = serverPinotQuery;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setDisableGroovy(boolean disableGroovy) {
+  public QueryRouteInfoBuilder setDisableGroovy(boolean disableGroovy) {
     _disableGroovy = disableGroovy;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setUseApproximateFunction(boolean useApproximateFunction) {
+  public QueryRouteInfoBuilder setUseApproximateFunction(boolean useApproximateFunction) {
     _useApproximateFunction = useApproximateFunction;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setQueryOptimizer(QueryOptimizer queryOptimizer) {
+  public QueryRouteInfoBuilder setQueryOptimizer(QueryOptimizer queryOptimizer) {
     _queryOptimizer = queryOptimizer;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setRoutingManager(BrokerRoutingManager routingManager) {
+  public QueryRouteInfoBuilder setRoutingManager(BrokerRoutingManager routingManager) {
     _routingManager = routingManager;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setConfiguration(PinotConfiguration configuration) {
+  public QueryRouteInfoBuilder setConfiguration(PinotConfiguration configuration) {
     _configuration = configuration;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setServerBrokerRequest(BrokerRequest serverBrokerRequest) {
+  public QueryRouteInfoBuilder setServerBrokerRequest(BrokerRequest serverBrokerRequest) {
     this._serverBrokerRequest = serverBrokerRequest;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setQueryResponseLimit(int queryResponseLimit) {
+  public QueryRouteInfoBuilder setQueryResponseLimit(int queryResponseLimit) {
     _queryResponseLimit = queryResponseLimit;
     return this;
   }
 
-  public HybridBrokerRequestBuilder setMaxUnavailableSegmentsToPrintInQueryException(
+  public QueryRouteInfoBuilder setMaxUnavailableSegmentsToPrintInQueryException(
       int maxUnavailableSegmentsToPrintInQueryException) {
     MAX_UNAVAILABLE_SEGMENTS_TO_PRINT_IN_QUERY_EXCEPTION = maxUnavailableSegmentsToPrintInQueryException;
     return this;
   }
 
-  public HybridBrokerRequest build()
+  public QueryRouteInfo build()
       throws Exception {
     String rawTableName = TableNameBuilder.extractRawTableName(_tableName);
     Schema schema = _tableCache.getSchema(rawTableName);
@@ -298,7 +298,7 @@ public class HybridBrokerRequestBuilder {
     }
 
     if (offlineBrokerRequest == null && realtimeBrokerRequest == null) {
-      return HybridBrokerRequest.EMPTY;
+      return QueryRouteInfo.EMPTY;
     }
 
     if (offlineBrokerRequest != null && isFilterAlwaysTrue(offlineBrokerRequest.getPinotQuery())) {
@@ -394,7 +394,7 @@ public class HybridBrokerRequestBuilder {
 
     if (offlineBrokerRequest == null && realtimeBrokerRequest == null) {
       // When all segments have been pruned, we can just return an empty response.
-      return HybridBrokerRequest.EMPTY;
+      return QueryRouteInfo.EMPTY;
     }
     long routingEndTimeNs = System.nanoTime();
     _brokerMetrics.addPhaseTiming(rawTableName, BrokerQueryPhase.QUERY_ROUTING, routingEndTimeNs - routingStartTimeNs);
@@ -435,7 +435,7 @@ public class HybridBrokerRequestBuilder {
       }
     }
 
-    return new HybridBrokerRequest(_requestId, rawTableName, null, _serverBrokerRequest, offlineTableName,
+    return new QueryRouteInfo(_requestId, rawTableName, null, _serverBrokerRequest, offlineTableName,
         offlineBrokerRequest, offlineRoutingTable, realtimeTableName, realtimeBrokerRequest, realtimeRoutingTable,
         numPrunedSegmentsTotal, 0, _requestContext);
   }

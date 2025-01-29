@@ -951,7 +951,7 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
     BrokerRequest serverBrokerRequest =
         serverPinotQuery == pinotQuery ? brokerRequest : CalciteSqlCompiler.convertToBrokerRequest(serverPinotQuery);
 
-    List<HybridBrokerRequest> brokerRequests = new ArrayList<>(logicalTable.getPhysicalTableNames().size());
+    List<QueryRouteInfo> brokerRequests = new ArrayList<>(logicalTable.getPhysicalTableNames().size());
     long routingStartTimeNs = System.nanoTime();
     for (String tableName : logicalTable.getPhysicalTableNames()) {
       // Validate QPS quota
@@ -972,7 +972,7 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
         return new BrokerResponseNative(QueryException.getException(QueryException.QUOTA_EXCEEDED_ERROR, errorMessage));
       }
 
-      HybridBrokerRequestBuilder builder = new HybridBrokerRequestBuilder();
+      QueryRouteInfoBuilder builder = new QueryRouteInfoBuilder();
       builder.setTableName(tableName).setTableCache(_tableCache).setBrokerMetrics(_brokerMetrics)
           .setRequestId(requestId).setQuery(query).setRequestContext(requestContext)
           .setServerPinotQuery(serverPinotQuery).setQueryOptimizer(_queryOptimizer).setRoutingManager(_routingManager)
@@ -981,11 +981,11 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
           .setConfiguration(_config);
 
       try {
-        HybridBrokerRequest request = builder.build();
-        if (request != HybridBrokerRequest.EMPTY) {
+        QueryRouteInfo request = builder.build();
+        if (request != QueryRouteInfo.EMPTY) {
           brokerRequests.add(builder.build());
         }
-      } catch (HybridBrokerRequestBuilder.Exception exception) {
+      } catch (QueryRouteInfoBuilder.Exception exception) {
         LOGGER.info(exception.getMessage());
         switch (exception.getErrorCode()) {
           case QueryException.TABLE_DOES_NOT_EXIST_ERROR_CODE:
@@ -1015,7 +1015,7 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
     long timeSpentMs = TimeUnit.NANOSECONDS.toMillis(routingEndTimeNs - authStartTime);
 
     long remainingTimeMs = 0;
-    for (HybridBrokerRequest hybridBrokerRequest : brokerRequests) {
+    for (QueryRouteInfo queryRouteInfo : brokerRequests) {
       // Remaining time in milliseconds for the server query execution
       // NOTE: For hybrid use case, in most cases offline table and real-time table should have the same query timeout
       //       configured, but if necessary, we also allow different timeout for them.
@@ -1023,13 +1023,13 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
       //       remaining time and realtime table remaining time. Server side will have different remaining time set for
       //       each table type, and broker should wait for both types to return.
       try {
-        if (hybridBrokerRequest.getOfflineBrokerRequest() != null) {
-          remainingTimeMs = setQueryTimeout(hybridBrokerRequest.getOfflineTableName(),
-              hybridBrokerRequest.getOfflineBrokerRequest().getPinotQuery().getQueryOptions(), timeSpentMs);
+        if (queryRouteInfo.getOfflineBrokerRequest() != null) {
+          remainingTimeMs = setQueryTimeout(queryRouteInfo.getOfflineTableName(),
+              queryRouteInfo.getOfflineBrokerRequest().getPinotQuery().getQueryOptions(), timeSpentMs);
         }
-        if (hybridBrokerRequest.getRealtimeBrokerRequest() != null) {
-          remainingTimeMs = Math.max(remainingTimeMs, setQueryTimeout(hybridBrokerRequest.getRealtimeTableName(),
-              hybridBrokerRequest.getRealtimeBrokerRequest().getPinotQuery().getQueryOptions(), timeSpentMs));
+        if (queryRouteInfo.getRealtimeBrokerRequest() != null) {
+          remainingTimeMs = Math.max(remainingTimeMs, setQueryTimeout(queryRouteInfo.getRealtimeTableName(),
+              queryRouteInfo.getRealtimeBrokerRequest().getPinotQuery().getQueryOptions(), timeSpentMs));
         }
       } catch (TimeoutException e) {
         String errorMessage = e.getMessage();
@@ -1055,7 +1055,7 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
     Map<ServerRoutingInstance, InstanceRequest> requestMap = new HashMap<>();
 
     int numPrunedSegmentsTotal = 0;
-    for (HybridBrokerRequest request : brokerRequests) {
+    for (QueryRouteInfo request : brokerRequests) {
       requestMap.putAll(request.getRequestMap());
       numPrunedSegmentsTotal += request.getNumPrunedSegments();
     }

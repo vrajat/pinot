@@ -31,9 +31,9 @@ import org.apache.pinot.spi.trace.RequestContext;
 import org.apache.pinot.spi.utils.CommonConstants;
 
 
-public class HybridBrokerRequest {
-  public final static HybridBrokerRequest EMPTY =
-      new HybridBrokerRequest(-1, null, null, null, null, null, null, null, null, null, 0, -1, null);
+public class QueryRouteInfo {
+  public final static QueryRouteInfo EMPTY =
+      new QueryRouteInfo(-1, null, null, null, null, null, null, null, null, null, 0, -1, null);
 
   private final long _requestId;
   private final String _rawTableName;
@@ -49,7 +49,7 @@ public class HybridBrokerRequest {
   private final long _timeoutMs;
   private final RequestContext _requestContext;
 
-  public HybridBrokerRequest(long requestId, String rawTableName, BrokerRequest originalBrokerRequest,
+  public QueryRouteInfo(long requestId, String rawTableName, BrokerRequest originalBrokerRequest,
       BrokerRequest serverBrokerRequest, String offlineTableName, BrokerRequest offlineBrokerRequest,
       Map<ServerInstance, ServerRouteInfo> offlineRoutingTable, String realtimeTableName,
       BrokerRequest realtimeBrokerRequest, Map<ServerInstance, ServerRouteInfo> realtimeRoutingTable,
