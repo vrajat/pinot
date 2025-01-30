@@ -88,6 +88,7 @@ import org.apache.pinot.core.query.optimizer.QueryOptimizer;
 import org.apache.pinot.core.routing.RoutingTable;
 import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.core.routing.TimeBoundaryInfo;
+import org.apache.pinot.core.transport.QueryRouteInfo;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.core.util.GapfillUtils;
 import org.apache.pinot.query.parser.utils.ParserUtils;
@@ -847,18 +848,20 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
       onQueryStart(
           requestId, clientRequestId, query, new QueryServers(query, offlineRoutingTable, realtimeRoutingTable));
       try {
-        brokerResponse = processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, offlineBrokerRequest,
-            offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, remainingTimeMs, serverStats,
-            requestContext);
+        brokerResponse = processBrokerRequest(
+            new QueryRouteInfo(_brokerId, requestId, rawTableName, brokerRequest, serverBrokerRequest,
+                offlineTableName, offlineBrokerRequest, offlineRoutingTable, realtimeTableName, realtimeBrokerRequest,
+                realtimeRoutingTable, numPrunedSegmentsTotal, remainingTimeMs, requestContext), serverStats);
         brokerResponse.setClientRequestId(clientRequestId);
       } finally {
         onQueryFinish(requestId);
         LOGGER.debug("Remove track of running query: {}", requestId);
       }
     } else {
-      brokerResponse = processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, offlineBrokerRequest,
-          offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, remainingTimeMs, serverStats,
-          requestContext);
+      brokerResponse = processBrokerRequest(
+          new QueryRouteInfo(_brokerId, requestId, rawTableName, brokerRequest, serverBrokerRequest,
+              offlineTableName, offlineBrokerRequest, offlineRoutingTable, realtimeTableName, realtimeBrokerRequest,
+              realtimeRoutingTable, numPrunedSegmentsTotal, remainingTimeMs, requestContext), serverStats);
     }
     brokerResponse.setTablesQueried(Set.of(rawTableName));
 
@@ -976,7 +979,7 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
           .setServerPinotQuery(serverPinotQuery).setQueryOptimizer(_queryOptimizer).setRoutingManager(_routingManager)
           .setDisableGroovy(_disableGroovy).setUseApproximateFunction(_useApproximateFunction)
           .setServerBrokerRequest(serverBrokerRequest).setQueryResponseLimit(_queryResponseLimit)
-          .setConfiguration(_config);
+          .setConfiguration(_config).setBrokerId(_brokerId);
 
       try {
         QueryRouteInfo request = builder.build();
@@ -1070,9 +1073,9 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
       numPrunedSegmentsTotal += request.getNumPrunedSegments();
     }
 
-    brokerResponse = processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, serverBrokerRequest,
-        compositeOfflineRoutingTable, serverBrokerRequest, compositeRealtimeRoutingTable, remainingTimeMs,
-        serverStats, requestContext);
+    brokerResponse = processBrokerRequest(
+        new LogicalQueryRouteInfo(_brokerId, requestId, logicalTable.getTableName(), brokerRequest, serverBrokerRequest,
+            brokerRequests, numPrunedSegmentsTotal, remainingTimeMs, requestContext), serverStats);
 
     brokerResponse.setTablesQueried(Set.of(logicalTable.getTableName()));
 
@@ -2150,12 +2153,7 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
    * Processes the optimized broker requests for both OFFLINE and REALTIME table.
    * TODO: Directly take PinotQuery
    */
-  protected abstract BrokerResponseNative processBrokerRequest(long requestId, BrokerRequest originalBrokerRequest,
-      BrokerRequest serverBrokerRequest, @Nullable BrokerRequest offlineBrokerRequest,
-      @Nullable Map<ServerInstance, ServerRouteInfo> offlineRoutingTable,
-      @Nullable BrokerRequest realtimeBrokerRequest,
-      @Nullable Map<ServerInstance, ServerRouteInfo> realtimeRoutingTable, long timeoutMs, ServerStats serverStats,
-      RequestContext requestContext)
+  protected abstract BrokerResponseNative processBrokerRequest(QueryRouteInfo queryRouteInfo, ServerStats serverStats)
       throws Exception;
 
   private String getGlobalQueryId(long requestId) {

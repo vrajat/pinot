@@ -34,6 +34,7 @@ import org.apache.pinot.core.query.optimizer.QueryOptimizer;
 import org.apache.pinot.core.routing.RoutingTable;
 import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.core.routing.TimeBoundaryInfo;
+import org.apache.pinot.core.transport.QueryRouteInfo;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
@@ -75,6 +76,7 @@ public class QueryRouteInfoBuilder {
     }
   }
 
+  private String _brokerId;
   private String _tableName;
   private TableCache _tableCache;
   private BrokerMetrics _brokerMetrics;
@@ -92,6 +94,11 @@ public class QueryRouteInfoBuilder {
   private int _maxUnavailableSegmentsToPrintInQueryException;
 
   QueryRouteInfoBuilder() {
+  }
+
+  public QueryRouteInfoBuilder setBrokerId(String brokerId) {
+    _brokerId = brokerId;
+    return this;
   }
 
   public QueryRouteInfoBuilder setTableCache(TableCache tableCache) {
@@ -446,7 +453,7 @@ public class QueryRouteInfoBuilder {
       }
     }
 
-    return new QueryRouteInfo(_requestId, rawTableName, null, _serverBrokerRequest, offlineTableName,
+    return new QueryRouteInfo(_brokerId, _requestId, rawTableName, null, _serverBrokerRequest, offlineTableName,
         offlineBrokerRequest, offlineRoutingTable, realtimeTableName, realtimeBrokerRequest, realtimeRoutingTable,
         numPrunedSegmentsTotal, 0, _requestContext);
   }
