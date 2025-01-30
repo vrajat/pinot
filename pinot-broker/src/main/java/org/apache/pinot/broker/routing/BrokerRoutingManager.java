@@ -642,7 +642,8 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
     if (routingEntry == null) {
       return null;
     }
-    InstanceSelector.SelectionResult selectionResult = routingEntry.calculateRouting(brokerRequest, tableNameWithType, requestId);
+    InstanceSelector.SelectionResult selectionResult = routingEntry.calculateRouting(brokerRequest, tableNameWithType,
+        requestId);
     return new RoutingTable(getServerInstanceToSegmentsMap(tableNameWithType, selectionResult),
         selectionResult.getUnavailableSegments(), selectionResult.getNumPrunedSegments());
   }
@@ -879,7 +880,8 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
       return new ArrayList<>(selectedSegments);
     }
 
-    InstanceSelector.SelectionResult calculateRouting(BrokerRequest brokerRequest, String tableNameWithType, long requestId) {
+    InstanceSelector.SelectionResult calculateRouting(BrokerRequest brokerRequest, String tableNameWithType,
+        long requestId) {
       Set<String> selectedSegments = _segmentSelector.select(brokerRequest, tableNameWithType);
       int numTotalSelectedSegments = selectedSegments.size();
       int numPrunedSegments = numTotalSelectedSegments - selectedSegments.size();

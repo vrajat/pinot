@@ -39,7 +39,7 @@ public class QueryRouteInfo {
   private final String _realtimeTableName;
   private final BrokerRequest _realtimeBrokerRequest;
   private final Map<ServerInstance, ServerRouteInfo> _realtimeRoutingTable;
-  private final int numPrunedSegments;
+  private final int _numPrunedSegments;
   private final long _timeoutMs;
   private final RequestContext _requestContext;
 
@@ -48,19 +48,19 @@ public class QueryRouteInfo {
       Map<ServerInstance, ServerRouteInfo> offlineRoutingTable, String realtimeTableName,
       BrokerRequest realtimeBrokerRequest, Map<ServerInstance, ServerRouteInfo> realtimeRoutingTable,
       int numPrunedSegments, long timeoutMs, RequestContext requestContext) {
-    this._requestId = requestId;
+    _requestId = requestId;
     _rawTableName = rawTableName;
-    this._originalBrokerRequest = originalBrokerRequest;
-    this._serverBrokerRequest = serverBrokerRequest;
-    this._offlineTableName = offlineTableName;
-    this._offlineBrokerRequest = offlineBrokerRequest;
-    this._offlineRoutingTable = offlineRoutingTable;
-    this._realtimeTableName = realtimeTableName;
-    this._realtimeBrokerRequest = realtimeBrokerRequest;
-    this._realtimeRoutingTable = realtimeRoutingTable;
-    this.numPrunedSegments = numPrunedSegments;
-    this._timeoutMs = timeoutMs;
-    this._requestContext = requestContext;
+    _originalBrokerRequest = originalBrokerRequest;
+    _serverBrokerRequest = serverBrokerRequest;
+    _offlineTableName = offlineTableName;
+    _offlineBrokerRequest = offlineBrokerRequest;
+    _offlineRoutingTable = offlineRoutingTable;
+    _realtimeTableName = realtimeTableName;
+    _realtimeBrokerRequest = realtimeBrokerRequest;
+    _realtimeRoutingTable = realtimeRoutingTable;
+    _numPrunedSegments = numPrunedSegments;
+    _timeoutMs = timeoutMs;
+    _requestContext = requestContext;
   }
 
   // Getters and setters for each member variable
@@ -77,7 +77,7 @@ public class QueryRouteInfo {
   }
 
   public void setOriginalBrokerRequest(BrokerRequest originalBrokerRequest) {
-    this._originalBrokerRequest = originalBrokerRequest;
+    _originalBrokerRequest = originalBrokerRequest;
   }
 
   public BrokerRequest getServerBrokerRequest() {
@@ -109,7 +109,7 @@ public class QueryRouteInfo {
   }
 
   public int getNumPrunedSegments() {
-    return numPrunedSegments;
+    return _numPrunedSegments;
   }
 
   public long getTimeoutMs() {

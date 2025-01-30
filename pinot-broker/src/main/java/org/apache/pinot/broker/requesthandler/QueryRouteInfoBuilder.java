@@ -46,22 +46,32 @@ import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.*;
-
+//CHECKSTYLE:OFF
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.addRoutingPolicyInErrMsg;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.attachTimeBoundary;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.getRoutingPolicy;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.handleApproximateFunctionOverride;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.handleExpressionOverride;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.handleTimestampIndexOverride;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.isFilterAlwaysFalse;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.isFilterAlwaysTrue;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.setMaxServerResponseSizeBytes;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.validateRequest;
+//CHECKSTYLE:ON
 
 public class QueryRouteInfoBuilder {
   private static final Logger LOGGER = LoggerFactory.getLogger(QueryRouteInfoBuilder.class);
 
   public static class Exception extends java.lang.Exception {
-    private final int errorCode;
+    private final int _errorCode;
 
     Exception(int errorCode, String errorMessage) {
       super(errorMessage);
-      this.errorCode = errorCode;
+      _errorCode = errorCode;
     }
 
     public int getErrorCode() {
-      return errorCode;
+      return _errorCode;
     }
   }
 
@@ -79,10 +89,9 @@ public class QueryRouteInfoBuilder {
   private boolean _useApproximateFunction;
   private int _queryResponseLimit;
   private PinotConfiguration _configuration;
-  private int MAX_UNAVAILABLE_SEGMENTS_TO_PRINT_IN_QUERY_EXCEPTION;
+  private int _maxUnavailableSegmentsToPrintInQueryException;
 
   QueryRouteInfoBuilder() {
-
   }
 
   public QueryRouteInfoBuilder setTableCache(TableCache tableCache) {
@@ -146,7 +155,7 @@ public class QueryRouteInfoBuilder {
   }
 
   public QueryRouteInfoBuilder setServerBrokerRequest(BrokerRequest serverBrokerRequest) {
-    this._serverBrokerRequest = serverBrokerRequest;
+    _serverBrokerRequest = serverBrokerRequest;
     return this;
   }
 
@@ -157,7 +166,7 @@ public class QueryRouteInfoBuilder {
 
   public QueryRouteInfoBuilder setMaxUnavailableSegmentsToPrintInQueryException(
       int maxUnavailableSegmentsToPrintInQueryException) {
-    MAX_UNAVAILABLE_SEGMENTS_TO_PRINT_IN_QUERY_EXCEPTION = maxUnavailableSegmentsToPrintInQueryException;
+    _maxUnavailableSegmentsToPrintInQueryException = maxUnavailableSegmentsToPrintInQueryException;
     return this;
   }
 
@@ -224,7 +233,7 @@ public class QueryRouteInfoBuilder {
         BaseSingleStageBrokerRequestHandler.getHandlerContext(_disableGroovy, _useApproximateFunction,
             offlineTableConfig, realtimeTableConfig);
     if (handlerContext._disableGroovy) {
-      rejectGroovyQuery(serverPinotQuery);
+      BaseSingleStageBrokerRequestHandler.rejectGroovyQuery(serverPinotQuery);
     }
     if (handlerContext._useApproximateFunction) {
       handleApproximateFunctionOverride(serverPinotQuery);
@@ -327,7 +336,8 @@ public class QueryRouteInfoBuilder {
       }
       if (routingTable != null) {
         unavailableSegments.addAll(routingTable.getUnavailableSegments());
-        Map<ServerInstance, ServerRouteInfo> serverInstanceToSegmentsMap = routingTable.getServerInstanceToSegmentsMap();
+        Map<ServerInstance, ServerRouteInfo> serverInstanceToSegmentsMap =
+            routingTable.getServerInstanceToSegmentsMap();
         if (!serverInstanceToSegmentsMap.isEmpty()) {
           offlineRoutingTable = serverInstanceToSegmentsMap;
         } else {
@@ -347,7 +357,8 @@ public class QueryRouteInfoBuilder {
       }
       if (routingTable != null) {
         unavailableSegments.addAll(routingTable.getUnavailableSegments());
-        Map<ServerInstance, ServerRouteInfo> serverInstanceToSegmentsMap = routingTable.getServerInstanceToSegmentsMap();
+        Map<ServerInstance, ServerRouteInfo> serverInstanceToSegmentsMap =
+            routingTable.getServerInstanceToSegmentsMap();
         if (!serverInstanceToSegmentsMap.isEmpty()) {
           realtimeRoutingTable = serverInstanceToSegmentsMap;
         } else {
@@ -378,10 +389,10 @@ public class QueryRouteInfoBuilder {
 
     if (numUnavailableSegments > 0) {
       String errorMessage;
-      if (numUnavailableSegments > MAX_UNAVAILABLE_SEGMENTS_TO_PRINT_IN_QUERY_EXCEPTION) {
+      if (numUnavailableSegments > _maxUnavailableSegmentsToPrintInQueryException) {
         errorMessage = String.format("%d segments unavailable, sampling %d: %s", numUnavailableSegments,
-            MAX_UNAVAILABLE_SEGMENTS_TO_PRINT_IN_QUERY_EXCEPTION,
-            unavailableSegments.subList(0, MAX_UNAVAILABLE_SEGMENTS_TO_PRINT_IN_QUERY_EXCEPTION));
+            _maxUnavailableSegmentsToPrintInQueryException,
+            unavailableSegments.subList(0, _maxUnavailableSegmentsToPrintInQueryException));
       } else {
         errorMessage = String.format("%d segments unavailable: %s", numUnavailableSegments, unavailableSegments);
       }

@@ -31,7 +31,8 @@ import picocli.CommandLine;
 public class AddLogicalTableCommand extends AbstractDatabaseBaseAdminCommand {
   private static final Logger LOGGER = LoggerFactory.getLogger(AddLogicalTableCommand.class);
 
-  @CommandLine.Option(names = {"-logicalTableConfig"}, required = true, description = "Path to logical table config file.")
+  @CommandLine.Option(names = {"-logicalTableConfig"}, required = true,
+      description = "Path to logical table config file.")
   private String _logicalTableConfigFile = null;
 
   @Override
