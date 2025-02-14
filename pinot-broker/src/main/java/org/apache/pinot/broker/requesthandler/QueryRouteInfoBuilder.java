@@ -47,17 +47,7 @@ import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-//CHECKSTYLE:OFF
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.addRoutingPolicyInErrMsg;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.attachTimeBoundary;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.getRoutingPolicy;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.handleApproximateFunctionOverride;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.handleExpressionOverride;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.handleTimestampIndexOverride;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.isFilterAlwaysFalse;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.isFilterAlwaysTrue;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.setMaxServerResponseSizeBytes;
-import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.validateRequest;
+import static org.apache.pinot.broker.requesthandler.BaseSingleStageBrokerRequestHandler.*;
 //CHECKSTYLE:ON
 
 public class QueryRouteInfoBuilder {

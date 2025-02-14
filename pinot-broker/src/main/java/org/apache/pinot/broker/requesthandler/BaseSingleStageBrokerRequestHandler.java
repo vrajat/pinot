@@ -920,10 +920,14 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
       RequestContext requestContext, HttpHeaders httpHeaders, AccessControl accessControl, PinotQuery pinotQuery,
       PinotQuery serverPinotQuery, LogicalTable logicalTable, String database)
       throws Exception {
+    long authStartTime = System.nanoTime();
     boolean ignoreCase = _tableCache.isIgnoreCase();
     Schema schema = _tableCache.getSchema(logicalTable.getPhysicalTableNames().get(0));
 
-    long authStartTime = System.nanoTime();
+    BrokerRequest brokerRequest = CalciteSqlCompiler.convertToBrokerRequest(pinotQuery);
+    BrokerRequest serverBrokerRequest =
+        serverPinotQuery == pinotQuery ? brokerRequest : CalciteSqlCompiler.convertToBrokerRequest(serverPinotQuery);
+
     try {
       AuthorizationResult authorizationResult =
           accessControl.authorize(requesterIdentity, new HashSet<>(logicalTable.getPhysicalTableNames()));
@@ -931,15 +935,7 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
         for (String tableName : logicalTable.getPhysicalTableNames()) {
           authorizationResult = accessControl.authorize(httpHeaders, TargetType.TABLE, tableName, Actions.Table.QUERY);
           if (!authorizationResult.hasAccess()) {
-            _brokerMetrics.addMeteredTableValue(tableName, BrokerMeter.REQUEST_DROPPED_DUE_TO_ACCESS_ERROR, 1);
-            LOGGER.info("Access denied for request {}: {}, table: {}, reason :{}", requestId, query, tableName,
-                authorizationResult.getFailureMessage());
-            requestContext.setErrorCode(QueryException.ACCESS_DENIED_ERROR_CODE);
-            String failureMessage = authorizationResult.getFailureMessage();
-            if (StringUtils.isNotBlank(failureMessage)) {
-              failureMessage = "Reason: " + failureMessage;
-            }
-            throw new WebApplicationException("Permission denied." + failureMessage, Response.Status.FORBIDDEN);
+            throwAccessDeniedError(requestId, query, requestContext, tableName, authorizationResult);
           }
         }
       }
@@ -948,21 +944,18 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
           System.nanoTime() - authStartTime);
     }
 
-    BrokerRequest brokerRequest = CalciteSqlCompiler.convertToBrokerRequest(pinotQuery);
-    BrokerRequest serverBrokerRequest =
-        serverPinotQuery == pinotQuery ? brokerRequest : CalciteSqlCompiler.convertToBrokerRequest(serverPinotQuery);
+    if (!_queryQuotaManager.acquireDatabase(database)) {
+      String errorMessage =
+          String.format("Request %d: %s exceeds query quota for database: %s", requestId, query, database);
+      LOGGER.info(errorMessage);
+      requestContext.setErrorCode(QueryException.TOO_MANY_REQUESTS_ERROR_CODE);
+      return new BrokerResponseNative(QueryException.getException(QueryException.QUOTA_EXCEEDED_ERROR, errorMessage));
+    }
 
     List<QueryRouteInfo> brokerRequests = new ArrayList<>(logicalTable.getPhysicalTableNames().size());
     long routingStartTimeNs = System.nanoTime();
     for (String tableName : logicalTable.getPhysicalTableNames()) {
       // Validate QPS quota
-      if (!_queryQuotaManager.acquireDatabase(database)) {
-        String errorMessage =
-            String.format("Request %d: %s exceeds query quota for database: %s", requestId, query, database);
-        LOGGER.info(errorMessage);
-        requestContext.setErrorCode(QueryException.TOO_MANY_REQUESTS_ERROR_CODE);
-        return new BrokerResponseNative(QueryException.getException(QueryException.QUOTA_EXCEEDED_ERROR, errorMessage));
-      }
       if (!_queryQuotaManager.acquire(tableName)) {
         String errorMessage =
             String.format("Request %d: %s exceeds query quota for table: %s", requestId, query, tableName);
@@ -1041,18 +1034,6 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
       }
     }
 
-    requestContext.setFanoutType(RequestContext.FanoutType.HYBRID);
-    requestContext.setOfflineServerTenant(logicalTable.getBrokerTenant());
-    requestContext.setRealtimeServerTenant(logicalTable.getBrokerTenant());
-
-    _brokerMetrics.addMeteredTableValue(logicalTable.getTableName(), BrokerMeter.QUERIES, 1);
-    _brokerMetrics.addMeteredGlobalValue(BrokerMeter.QUERIES_GLOBAL, 1);
-    _brokerMetrics.addValueToTableGauge(logicalTable.getTableName(), BrokerGauge.REQUEST_SIZE, query.length());
-
-    // Execute the query
-    ServerStats serverStats = new ServerStats();
-    BrokerResponseNative brokerResponse;
-
     int numPrunedSegmentsTotal = 0;
     Map<ServerInstance, ServerRouteInfo> compositeOfflineRoutingTable = new HashMap<>();
     Map<ServerInstance, ServerRouteInfo> compositeRealtimeRoutingTable = new HashMap<>();
@@ -1072,6 +1053,18 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
       }
       numPrunedSegmentsTotal += request.getNumPrunedSegments();
     }
+
+    requestContext.setFanoutType(RequestContext.FanoutType.HYBRID);
+    requestContext.setOfflineServerTenant(logicalTable.getBrokerTenant());
+    requestContext.setRealtimeServerTenant(logicalTable.getBrokerTenant());
+
+    _brokerMetrics.addMeteredTableValue(logicalTable.getTableName(), BrokerMeter.QUERIES, 1);
+    _brokerMetrics.addMeteredGlobalValue(BrokerMeter.QUERIES_GLOBAL, 1);
+    _brokerMetrics.addValueToTableGauge(logicalTable.getTableName(), BrokerGauge.REQUEST_SIZE, query.length());
+
+    // Execute the query
+    ServerStats serverStats = new ServerStats();
+    BrokerResponseNative brokerResponse;
 
     brokerResponse = processBrokerRequest(
         new LogicalQueryRouteInfo(_brokerId, requestId, logicalTable.getTableName(), brokerRequest, serverBrokerRequest,
