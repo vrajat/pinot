@@ -33,7 +33,7 @@ import org.apache.pinot.spi.accounting.ThreadResourceTracker;
 import org.apache.pinot.spi.accounting.ThreadResourceUsageAccountant;
 import org.apache.pinot.spi.accounting.ThreadResourceUsageProvider;
 import org.apache.pinot.spi.env.PinotConfiguration;
-import org.apache.pinot.spi.exception.EarlyTerminationException;
+import org.apache.pinot.spi.exception.SystemTerminatedException;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -347,7 +347,7 @@ public class Tracing {
 
     public static void sampleAndCheckInterruption() {
       if (isInterrupted()) {
-        throw new EarlyTerminationException("Interrupted while merging records");
+        throw new SystemTerminatedException("Interrupted by Resource Accountant");
       }
       sample();
     }

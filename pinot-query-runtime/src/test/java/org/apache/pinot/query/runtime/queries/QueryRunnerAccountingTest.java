@@ -33,7 +33,6 @@ import org.apache.pinot.spi.accounting.QueryResourceTracker;
 import org.apache.pinot.spi.accounting.ThreadResourceUsageAccountant;
 import org.apache.pinot.spi.accounting.ThreadResourceUsageProvider;
 import org.apache.pinot.spi.env.PinotConfiguration;
-import org.apache.pinot.spi.exception.EarlyTerminationException;
 import org.apache.pinot.spi.trace.Tracing;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.mockito.MockedStatic;
@@ -160,7 +159,8 @@ public class QueryRunnerAccountingTest extends QueryRunnerTestBase {
     }
   }
 
-  @Test(expectedExceptions = EarlyTerminationException.class)
+  @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Interrupted by Resource "
+      + "Accountant.*")
   void testInterrupt() {
     HashMap<String, Object> configs = getAccountingConfig();
 

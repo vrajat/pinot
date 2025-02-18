@@ -41,6 +41,7 @@ import org.apache.pinot.query.runtime.plan.MultiStageQueryStats;
 import org.apache.pinot.query.runtime.plan.OpChainExecutionContext;
 import org.apache.pinot.query.runtime.plan.pipeline.PipelineBreakerOperator;
 import org.apache.pinot.spi.exception.EarlyTerminationException;
+import org.apache.pinot.spi.exception.SystemTerminatedException;
 import org.apache.pinot.spi.trace.InvocationScope;
 import org.apache.pinot.spi.trace.Tracing;
 import org.slf4j.Logger;
@@ -77,7 +78,7 @@ public abstract class MultiStageOperator
   protected void sampleAndCheckInterruption() {
     Tracing.ThreadAccountantOps.sampleMSE();
     if (Tracing.ThreadAccountantOps.isInterrupted()) {
-      earlyTerminate();
+      throw new SystemTerminatedException("Interrupted by Resource Accountant");
     }
   }
 
@@ -88,7 +89,7 @@ public abstract class MultiStageOperator
    */
   @Override
   public TransferableBlock nextBlock() {
-    if (Tracing.ThreadAccountantOps.isInterrupted()) {
+    if (Thread.currentThread().isInterrupted()) {
       throw new EarlyTerminationException("Interrupted while processing next block");
     }
     if (logger().isDebugEnabled()) {

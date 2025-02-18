@@ -64,6 +64,7 @@ import org.apache.pinot.spi.accounting.ThreadResourceUsageProvider;
 import org.apache.pinot.spi.config.table.JsonIndexConfig;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.exception.EarlyTerminationException;
+import org.apache.pinot.spi.exception.SystemTerminatedException;
 import org.apache.pinot.spi.trace.Tracing;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.mockito.Mockito;
@@ -299,7 +300,7 @@ public class ResourceManagerAccountingTest {
         Tracing.ThreadAccountantOps.setupRunner("testSelectQueryId" + finalI);
         try {
           SelectionOperatorUtils.getDataTableFromRows(rows, dataSchema, false).toBytes();
-        } catch (EarlyTerminationException e) {
+        } catch (SystemTerminatedException e) {
           earlyTerminationOccurred.set(true);
           Tracing.ThreadAccountantOps.clear();
         } catch (IOException e) {
@@ -367,7 +368,7 @@ public class ResourceManagerAccountingTest {
         Tracing.ThreadAccountantOps.setupRunner("testGroupByQueryId" + finalI);
         try {
           groupByResultsBlock.getDataTable().toBytes();
-        } catch (EarlyTerminationException e) {
+        } catch (SystemTerminatedException e) {
           earlyTerminationOccurred.set(true);
           Tracing.ThreadAccountantOps.clear();
         } catch (IOException e) {
@@ -445,7 +446,7 @@ public class ResourceManagerAccountingTest {
         Tracing.ThreadAccountantOps.setupRunner("testJsonExtractIndexId1");
         try {
           mutableJsonIndex.getMatchingFlattenedDocsMap("key", null);
-        } catch (EarlyTerminationException e) {
+        } catch (SystemTerminatedException e) {
           mutableEarlyTerminationOccurred.set(true);
           Tracing.ThreadAccountantOps.clear();
         } finally {
@@ -465,7 +466,7 @@ public class ResourceManagerAccountingTest {
           } catch (IOException e) {
             Assert.fail("failed .getMatchingFlattenedDocsMap for the immutable json index");
           }
-        } catch (EarlyTerminationException e) {
+        } catch (SystemTerminatedException e) {
           immutableEarlyTerminationOccurred.set(true);
           Tracing.ThreadAccountantOps.clear();
         } finally {
