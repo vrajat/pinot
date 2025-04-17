@@ -199,7 +199,8 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
         executionInfo =
             SingleTableExecutionInfo.create(_instanceDataManager, tableNameWithType, queryRequest.getSegmentsToQuery(),
                 queryRequest.getOptionalSegments(), queryContext);
-      }    } catch (NoSuchElementException ne) {
+      }
+    } catch (NoSuchElementException ne) {
       String errorMessage =
           "Failed to find table: " + ne.getMessage() + " on server: " + _instanceDataManager.getInstanceId();
       InstanceResponseBlock instanceResponse = new InstanceResponseBlock();
