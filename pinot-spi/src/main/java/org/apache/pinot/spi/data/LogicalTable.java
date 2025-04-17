@@ -33,12 +33,12 @@ public class LogicalTable {
 
   private static final ObjectMapper DEFAULT_MAPPER = new ObjectMapper();
 
-  public static final String LOGICAL_TABLE_NAME_KEY = "logicalTableName";
-  public static final String PHYSICAL_TABLE_CONFIG_KEY = "physicalTableConfig";
+  public static final String LOGICAL_TABLE_NAME_KEY = "tableName";
+  public static final String PHYSICAL_TABLE_CONFIG_KEY = "physicalTableConfigMap";
   public static final String BROKER_TENANT_KEY = "brokerTenant";
 
   private String _tableName;
-  private String brokerTenant;
+  private String _brokerTenant;
   private Map<String, PhysicalTableConfig> _physicalTableConfigMap;
 
   public static LogicalTable fromString(String logicalTableString)
@@ -64,11 +64,11 @@ public class LogicalTable {
   }
 
   public String getBrokerTenant() {
-    return brokerTenant;
+    return _brokerTenant;
   }
 
   public void setBrokerTenant(String brokerTenant) {
-    this.brokerTenant = brokerTenant;
+    _brokerTenant = brokerTenant;
   }
 
   private JsonNode toJsonObject() {
