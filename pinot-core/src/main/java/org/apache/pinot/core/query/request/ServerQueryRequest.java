@@ -25,6 +25,7 @@ import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.common.request.PinotQuery;
+import org.apache.pinot.common.request.TableSegmentsInfo;
 import org.apache.pinot.core.query.request.context.QueryContext;
 import org.apache.pinot.core.query.request.context.TimerContext;
 import org.apache.pinot.core.query.request.context.utils.QueryContextConverterUtils;
@@ -54,6 +55,7 @@ public class ServerQueryRequest {
   private final boolean _enableStreaming;
   private final List<String> _segmentsToQuery;
   private final List<String> _optionalSegments;
+  private final List<TableSegmentsInfo> _tableSegmentsInfoList;
   private final QueryContext _queryContext;
 
   // Request id might not be unique across brokers or for request hitting a hybrid table. To solve that we may construct
@@ -82,6 +84,7 @@ public class ServerQueryRequest {
     _enableStreaming = enableStreaming;
     _segmentsToQuery = instanceRequest.getSearchSegments();
     _optionalSegments = instanceRequest.getOptionalSegments();
+    _tableSegmentsInfoList = instanceRequest.getTableSegmentsInfoList();
     _queryContext = getQueryContext(instanceRequest.getQuery().getPinotQuery());
     _queryId = QueryIdUtils.getQueryId(_brokerId, _requestId,
         TableNameBuilder.getTableTypeFromTableName(_queryContext.getTableName()));
@@ -125,6 +128,7 @@ public class ServerQueryRequest {
     _queryId = QueryIdUtils.getQueryId(_brokerId, _requestId,
         TableNameBuilder.getTableTypeFromTableName(_queryContext.getTableName()));
     _timerContext = new TimerContext(_queryContext.getTableName(), serverMetrics, queryArrivalTimeMs);
+    _tableSegmentsInfoList = null;
   }
 
   /**
@@ -146,6 +150,7 @@ public class ServerQueryRequest {
 
     _segmentsToQuery = segmentsToQuery;
     _optionalSegments = null;
+    _tableSegmentsInfoList = null;
 
     _timerContext = new TimerContext(_queryContext.getTableName(), serverMetrics, queryArrivalTimeMs);
   }
@@ -180,6 +185,10 @@ public class ServerQueryRequest {
 
   public List<String> getOptionalSegments() {
     return _optionalSegments;
+  }
+
+  public List<TableSegmentsInfo> getTableSegmentsInfoList() {
+    return _tableSegmentsInfoList;
   }
 
   public QueryContext getQueryContext() {

@@ -89,6 +89,7 @@ import org.apache.pinot.core.transport.TableRouteInfo;
 import org.apache.pinot.core.util.GapfillUtils;
 import org.apache.pinot.query.parser.utils.ParserUtils;
 import org.apache.pinot.query.routing.table.ImplicitHybridTableRouteProvider;
+import org.apache.pinot.query.routing.table.LogicalTableRouteProvider;
 import org.apache.pinot.query.routing.table.TableRouteProvider;
 import org.apache.pinot.segment.local.function.GroovyFunctionEvaluator;
 import org.apache.pinot.spi.auth.AuthorizationResult;
@@ -97,6 +98,7 @@ import org.apache.pinot.spi.config.table.QueryConfig;
 import org.apache.pinot.spi.config.table.RoutingConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
+import org.apache.pinot.spi.data.LogicalTable;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.exception.BadQueryRequestException;
@@ -372,6 +374,8 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
     String rawTableName = compileResult._rawTableName;
     PinotQuery pinotQuery = compileResult._pinotQuery;
     PinotQuery serverPinotQuery = compileResult._serverPinotQuery;
+    LogicalTable logicalTable = _tableCache.getLogicalTable(rawTableName);
+    String database = DatabaseUtils.extractDatabaseFromFullyQualifiedTableName(tableName);
     long compilationEndTimeNs = System.nanoTime();
     // full request compile time = compilationTimeNs + parserTimeNs
     _brokerMetrics.addPhaseTiming(rawTableName, BrokerQueryPhase.REQUEST_COMPILATION,
@@ -382,17 +386,57 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
     BrokerRequest brokerRequest = CalciteSqlCompiler.convertToBrokerRequest(pinotQuery);
     BrokerRequest serverBrokerRequest =
         serverPinotQuery == pinotQuery ? brokerRequest : CalciteSqlCompiler.convertToBrokerRequest(serverPinotQuery);
-    AuthorizationResult authorizationResult = accessControl.authorize(requesterIdentity, serverBrokerRequest);
-
     _brokerMetrics.addPhaseTiming(rawTableName, BrokerQueryPhase.AUTHORIZATION,
         System.nanoTime() - compilationEndTimeNs);
 
-    if (!authorizationResult.hasAccess()) {
-      throwAccessDeniedError(requestId, query, requestContext, tableName, authorizationResult);
+    if (logicalTable != null) {
+      AuthorizationResult authorizationResult =
+          hasTableAccess(requesterIdentity, logicalTable.getPhysicalTableConfigMap().keySet(), requestContext,
+              httpHeaders);
+      if (!authorizationResult.hasAccess()) {
+        throwAccessDeniedError(requestId, query, requestContext, tableName, authorizationResult);
+      }
+
+      // Validate QPS
+      if (hasExceededQPSQuota(database, logicalTable.getPhysicalTableConfigMap().keySet(), requestContext)) {
+        String errorMessage = String.format("Request %d: %s exceeds query quota.", requestId, query);
+        return new BrokerResponseNative(QueryErrorCode.TOO_MANY_REQUESTS, errorMessage);
+      }
+    } else {
+      AuthorizationResult authorizationResult = accessControl.authorize(requesterIdentity, serverBrokerRequest);
+
+      _brokerMetrics.addPhaseTiming(rawTableName, BrokerQueryPhase.AUTHORIZATION,
+          System.nanoTime() - compilationEndTimeNs);
+
+      if (!authorizationResult.hasAccess()) {
+        throwAccessDeniedError(requestId, query, requestContext, tableName, authorizationResult);
+      }
+
+      // Validate QPS quota
+      if (!_queryQuotaManager.acquireDatabase(database)) {
+        String errorMessage =
+            String.format("Request %d: %s exceeds query quota for database: %s", requestId, query, database);
+        LOGGER.info(errorMessage);
+        requestContext.setErrorCode(QueryErrorCode.TOO_MANY_REQUESTS);
+        return new BrokerResponseNative(QueryErrorCode.TOO_MANY_REQUESTS, errorMessage);
+      }
+      if (!_queryQuotaManager.acquire(tableName)) {
+        String errorMessage =
+            String.format("Request %d: %s exceeds query quota for table: %s", requestId, query, tableName);
+        LOGGER.info(errorMessage);
+        requestContext.setErrorCode(QueryErrorCode.TOO_MANY_REQUESTS);
+        _brokerMetrics.addMeteredTableValue(rawTableName, BrokerMeter.QUERY_QUOTA_EXCEEDED, 1);
+        return new BrokerResponseNative(QueryErrorCode.TOO_MANY_REQUESTS, errorMessage);
+      }
     }
 
     // Get the tables hit by the request
-    TableRouteProvider routeProvider = ImplicitHybridTableRouteProvider.create(tableName, _tableCache, _routingManager);
+    TableRouteProvider routeProvider;
+    if (logicalTable == null) {
+      routeProvider = ImplicitHybridTableRouteProvider.create(tableName, _tableCache, _routingManager);
+    } else {
+      routeProvider = LogicalTableRouteProvider.create(logicalTable, _tableCache, _routingManager);
+    }
 
     if (!routeProvider.isExists()) {
       LOGGER.info("Table not found for request {}: {}", requestId, query);
@@ -417,24 +461,6 @@ public abstract class BaseSingleStageBrokerRequestHandler extends BaseBrokerRequ
     validateGroovyScript(serverPinotQuery, handlerContext._disableGroovy);
     if (handlerContext._useApproximateFunction) {
       handleApproximateFunctionOverride(serverPinotQuery);
-    }
-
-    // Validate QPS quota
-    String database = DatabaseUtils.extractDatabaseFromFullyQualifiedTableName(tableName);
-    if (!_queryQuotaManager.acquireDatabase(database)) {
-      String errorMessage =
-          String.format("Request %d: %s exceeds query quota for database: %s", requestId, query, database);
-      LOGGER.info(errorMessage);
-      requestContext.setErrorCode(QueryErrorCode.TOO_MANY_REQUESTS);
-      return new BrokerResponseNative(QueryErrorCode.TOO_MANY_REQUESTS, errorMessage);
-    }
-    if (!_queryQuotaManager.acquire(tableName)) {
-      String errorMessage =
-          String.format("Request %d: %s exceeds query quota for table: %s", requestId, query, tableName);
-      LOGGER.info(errorMessage);
-      requestContext.setErrorCode(QueryErrorCode.TOO_MANY_REQUESTS);
-      _brokerMetrics.addMeteredTableValue(rawTableName, BrokerMeter.QUERY_QUOTA_EXCEEDED, 1);
-      return new BrokerResponseNative(QueryErrorCode.TOO_MANY_REQUESTS, errorMessage);
     }
 
     // Validate the request
