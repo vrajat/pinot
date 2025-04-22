@@ -20,6 +20,7 @@ package org.apache.pinot.core.transport;
 
 import java.util.Map;
 import javax.annotation.Nullable;
+import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.core.routing.ServerRouteInfo;
@@ -75,4 +76,8 @@ public interface TableRouteInfo {
    * @return a map of server routing instances to their corresponding instance requests
    */
   Map<ServerRoutingInstance, InstanceRequest> getRequestMap(long requestId, String brokerId, boolean preferTls);
+
+  Map<ServerInstance, Server.ServerRequest> getOfflineServerRequestMap(long requestId, String brokerId, boolean trace);
+
+  Map<ServerInstance, Server.ServerRequest> getRealtimeServerRequestMap(long requestId, String brokerId, boolean trace);
 }

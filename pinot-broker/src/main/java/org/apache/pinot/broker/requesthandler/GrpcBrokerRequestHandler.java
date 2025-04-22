@@ -21,7 +21,6 @@ package org.apache.pinot.broker.requesthandler;
 import io.grpc.ConnectivityState;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -36,15 +35,12 @@ import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.grpc.ServerGrpcQueryClient;
-import org.apache.pinot.common.utils.grpc.ServerGrpcRequestBuilder;
 import org.apache.pinot.core.query.reduce.StreamingReduceService;
-import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.core.transport.ServerRoutingInstance;
 import org.apache.pinot.core.transport.TableRouteInfo;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.env.PinotConfiguration;
-import org.apache.pinot.spi.query.QueryThreadContext;
 import org.apache.pinot.spi.trace.RequestContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,21 +87,19 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
       throws Exception {
     BrokerRequest offlineBrokerRequest = route.getOfflineBrokerRequest();
     BrokerRequest realtimeBrokerRequest = route.getRealtimeBrokerRequest();
-    Map<ServerInstance, ServerRouteInfo> offlineRoutingTable = route.getOfflineRoutingTable();
-    Map<ServerInstance, ServerRouteInfo> realtimeRoutingTable = route.getRealtimeRoutingTable();
+    Map<ServerInstance, Server.ServerRequest> offlineRequestMap = route.getOfflineServerRequestMap(requestId, _brokerId, requestContext.isSampledRequest());
+    Map<ServerInstance, Server.ServerRequest> realtimeRequestMap = route.getRealtimeServerRequestMap(requestId, _brokerId, requestContext.isSampledRequest());
 
     // TODO: Add servers queried/responded stats
     assert offlineBrokerRequest != null || realtimeBrokerRequest != null;
     Map<ServerRoutingInstance, Iterator<Server.ServerResponse>> responseMap = new HashMap<>();
     if (offlineBrokerRequest != null) {
-      assert offlineRoutingTable != null;
-      sendRequest(requestId, TableType.OFFLINE, offlineBrokerRequest, offlineRoutingTable, responseMap,
-          requestContext.isSampledRequest());
+      assert offlineRequestMap != null;
+      sendRequest(requestId, TableType.OFFLINE, offlineRequestMap, responseMap);
     }
     if (realtimeBrokerRequest != null) {
-      assert realtimeRoutingTable != null;
-      sendRequest(requestId, TableType.REALTIME, realtimeBrokerRequest, realtimeRoutingTable, responseMap,
-          requestContext.isSampledRequest());
+      assert realtimeRequestMap != null;
+      sendRequest(requestId, TableType.REALTIME, realtimeRequestMap, responseMap);
     }
     long reduceStartTimeNs = System.nanoTime();
     BrokerResponseNative brokerResponse =
@@ -117,25 +111,13 @@ public class GrpcBrokerRequestHandler extends BaseSingleStageBrokerRequestHandle
   /**
    * Query pinot server for data table.
    */
-  private void sendRequest(long requestId, TableType tableType, BrokerRequest brokerRequest,
-      Map<ServerInstance, ServerRouteInfo> routingTable,
-      Map<ServerRoutingInstance, Iterator<Server.ServerResponse>> responseMap, boolean trace) {
-    for (Map.Entry<ServerInstance, ServerRouteInfo> routingEntry : routingTable.entrySet()) {
+  private void sendRequest(long requestId, TableType tableType, Map<ServerInstance, Server.ServerRequest> requestMap,
+      Map<ServerRoutingInstance, Iterator<Server.ServerResponse>> responseMap) {
+    for (Map.Entry<ServerInstance, Server.ServerRequest> routingEntry : requestMap.entrySet()) {
       ServerInstance serverInstance = routingEntry.getKey();
-      // TODO: support optional segments for GrpcQueryServer.
-      List<String> segments = routingEntry.getValue().getSegments();
       // TODO: enable throttling on per host bases.
       try {
-        String cid = QueryThreadContext.getCid() == null ? QueryThreadContext.getCid() : Long.toString(requestId);
-        Iterator<Server.ServerResponse> streamingResponse = _streamingQueryClient.submit(serverInstance,
-            new ServerGrpcRequestBuilder()
-                .setRequestId(requestId)
-                .setCid(cid)
-                .setBrokerId(_brokerId)
-                .setEnableTrace(trace)
-                .setEnableStreaming(true)
-                .setBrokerRequest(brokerRequest)
-                .setSegments(segments).build());
+        Iterator<Server.ServerResponse> streamingResponse = _streamingQueryClient.submit(serverInstance, routingEntry.getValue());
         responseMap.put(serverInstance.toServerRoutingInstance(tableType, ServerInstance.RoutingType.GRPC),
             streamingResponse);
       } catch (Exception e) {

@@ -24,9 +24,11 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.InstanceRequest;
 import org.apache.pinot.common.request.TableSegmentsInfo;
+import org.apache.pinot.common.utils.grpc.ServerGrpcRequestBuilder;
 import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.core.transport.ServerRoutingInstance;
@@ -135,5 +137,95 @@ public class LogicalTableRouteInfo implements org.apache.pinot.core.transport.Ta
   @Override
   public Map<ServerInstance, ServerRouteInfo> getRealtimeRoutingTable() {
     return Map.of();
+  }
+
+  @Override
+  public Map<ServerInstance, Server.ServerRequest> getOfflineServerRequestMap(long requestId, String brokerId,
+      boolean trace) {
+    Map<ServerInstance, List<TableSegmentsInfo>> offlineTableRouteInfo = new HashMap<>();
+
+    for (PhysicalTableRouteInfo physicalTableRoute : _offlineTableRoutes) {
+      for (Map.Entry<ServerInstance, ServerRouteInfo> entry : physicalTableRoute.getServerRouteInfoMap().entrySet()) {
+        TableSegmentsInfo tableSegmentsInfo = new TableSegmentsInfo();
+        tableSegmentsInfo.setTableName(physicalTableRoute.getTableName());
+        tableSegmentsInfo.setSegments(entry.getValue().getSegments());
+        if (CollectionUtils.isNotEmpty(entry.getValue().getOptionalSegments())) {
+          tableSegmentsInfo.setOptionalSegments(entry.getValue().getOptionalSegments());
+        }
+
+        offlineTableRouteInfo.computeIfAbsent(entry.getKey(), v -> new ArrayList<>())
+            .add(tableSegmentsInfo);
+      }
+    }
+
+    Map<ServerInstance, Server.ServerRequest> requestMap = new HashMap<>();
+    for (Map.Entry<ServerInstance, List<TableSegmentsInfo>> entry : offlineTableRouteInfo.entrySet()) {
+      List<Server.TableSegmentsInfo> tableSegmentsInfoList = new ArrayList<>();
+      for (TableSegmentsInfo tableSegmentsInfo : entry.getValue()) {
+        Server.TableSegmentsInfo.Builder tableSegmentsInfoBuilder = Server.TableSegmentsInfo.newBuilder();
+        tableSegmentsInfoBuilder.setTableName(tableSegmentsInfo.getTableName());
+        tableSegmentsInfoBuilder.addAllSegment(tableSegmentsInfo.getSegments());
+        if (CollectionUtils.isNotEmpty(tableSegmentsInfo.getOptionalSegments())) {
+          tableSegmentsInfoBuilder.addAllOptionalSegment(tableSegmentsInfo.getOptionalSegments());
+        }
+        tableSegmentsInfoList.add(tableSegmentsInfoBuilder.build());
+      }
+
+      Server.ServerRequest serverRequest = new ServerGrpcRequestBuilder()
+          .setRequestId(requestId)
+          .setBrokerId(brokerId)
+          .setEnableTrace(trace)
+          .setBrokerRequest(_offlineBrokerRequest)
+          .setTableSegmentsInfoList(tableSegmentsInfoList)
+          .build();
+      requestMap.put(entry.getKey(), serverRequest);
+    }
+
+    return requestMap;
+  }
+
+  @Override
+  public Map<ServerInstance, Server.ServerRequest> getRealtimeServerRequestMap(long requestId, String brokerId,
+      boolean trace) {
+    Map<ServerInstance, List<TableSegmentsInfo>> offlineTableRouteInfo = new HashMap<>();
+
+    for (PhysicalTableRouteInfo physicalTableRoute : _realtimeTableRoutes) {
+      for (Map.Entry<ServerInstance, ServerRouteInfo> entry : physicalTableRoute.getServerRouteInfoMap().entrySet()) {
+        TableSegmentsInfo tableSegmentsInfo = new TableSegmentsInfo();
+        tableSegmentsInfo.setTableName(physicalTableRoute.getTableName());
+        tableSegmentsInfo.setSegments(entry.getValue().getSegments());
+        if (CollectionUtils.isNotEmpty(entry.getValue().getOptionalSegments())) {
+          tableSegmentsInfo.setOptionalSegments(entry.getValue().getOptionalSegments());
+        }
+
+        offlineTableRouteInfo.computeIfAbsent(entry.getKey(), v -> new ArrayList<>())
+            .add(tableSegmentsInfo);
+      }
+    }
+
+    Map<ServerInstance, Server.ServerRequest> requestMap = new HashMap<>();
+    for (Map.Entry<ServerInstance, List<TableSegmentsInfo>> entry : offlineTableRouteInfo.entrySet()) {
+      List<Server.TableSegmentsInfo> tableSegmentsInfoList = new ArrayList<>();
+      for (TableSegmentsInfo tableSegmentsInfo : entry.getValue()) {
+        Server.TableSegmentsInfo.Builder tableSegmentsInfoBuilder = Server.TableSegmentsInfo.newBuilder();
+        tableSegmentsInfoBuilder.setTableName(tableSegmentsInfo.getTableName());
+        tableSegmentsInfoBuilder.addAllSegment(tableSegmentsInfo.getSegments());
+        if (CollectionUtils.isNotEmpty(tableSegmentsInfo.getOptionalSegments())) {
+          tableSegmentsInfoBuilder.addAllOptionalSegment(tableSegmentsInfo.getOptionalSegments());
+        }
+        tableSegmentsInfoList.add(tableSegmentsInfoBuilder.build());
+      }
+
+      Server.ServerRequest serverRequest = new ServerGrpcRequestBuilder()
+          .setRequestId(requestId)
+          .setBrokerId(brokerId)
+          .setEnableTrace(trace)
+          .setBrokerRequest(_realtimeBrokerRequest)
+          .setTableSegmentsInfoList(tableSegmentsInfoList)
+          .build();
+      requestMap.put(entry.getKey(), serverRequest);
+    }
+
+    return requestMap;
   }
 }

@@ -22,8 +22,10 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.InstanceRequest;
+import org.apache.pinot.common.utils.grpc.ServerGrpcRequestBuilder;
 import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.query.QueryThreadContext;
@@ -131,5 +133,53 @@ public class ImplicitHybridTableRouteInfo implements TableRouteInfo {
     }
 
     return requestMap;
+  }
+
+  @Override
+  public Map<ServerInstance, Server.ServerRequest> getOfflineServerRequestMap(long requestId, String brokerId,
+      boolean trace) {
+    String cid = QueryThreadContext.getCid() == null ? QueryThreadContext.getCid() : Long.toString(requestId);
+    assert _offlineRoutingTable != null && _offlineBrokerRequest != null;
+    Map<ServerInstance, Server.ServerRequest> serverRequestMap = new HashMap<>();
+
+    for (Map.Entry<ServerInstance, ServerRouteInfo> entry : _offlineRoutingTable.entrySet()) {
+      ServerInstance serverInstance = entry.getKey();
+      ServerRouteInfo segments = entry.getValue();
+      Server.ServerRequest serverRequest = new ServerGrpcRequestBuilder()
+          .setRequestId(requestId)
+          .setCid(cid)
+          .setBrokerId(brokerId)
+          .setEnableTrace(trace)
+          .setEnableStreaming(true)
+          .setBrokerRequest(_offlineBrokerRequest)
+          .setSegments(segments.getSegments()).build();
+      serverRequestMap.put(serverInstance, serverRequest);
+    }
+
+    return serverRequestMap;
+  }
+
+  @Override
+  public Map<ServerInstance, Server.ServerRequest> getRealtimeServerRequestMap(long requestId, String brokerId,
+      boolean trace) {
+    String cid = QueryThreadContext.getCid() == null ? QueryThreadContext.getCid() : Long.toString(requestId);
+    assert _realtimeBrokerRequest !=  null && _realtimeRoutingTable != null;
+    Map<ServerInstance, Server.ServerRequest> serverRequestMap = new HashMap<>();
+
+    for (Map.Entry<ServerInstance, ServerRouteInfo> entry : _realtimeRoutingTable.entrySet()) {
+      ServerInstance serverInstance = entry.getKey();
+      ServerRouteInfo segments = entry.getValue();
+      Server.ServerRequest serverRequest = new ServerGrpcRequestBuilder()
+          .setRequestId(requestId)
+          .setCid(cid)
+          .setBrokerId(brokerId)
+          .setEnableTrace(trace)
+          .setEnableStreaming(true)
+          .setBrokerRequest(_realtimeBrokerRequest)
+          .setSegments(segments.getSegments()).build();
+      serverRequestMap.put(serverInstance, serverRequest);
+    }
+
+    return serverRequestMap;
   }
 }

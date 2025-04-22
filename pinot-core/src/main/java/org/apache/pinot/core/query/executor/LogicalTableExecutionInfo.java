@@ -25,12 +25,12 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.apache.pinot.common.request.TableSegmentsInfo;
 import org.apache.pinot.core.data.manager.InstanceDataManager;
 import org.apache.pinot.core.data.manager.realtime.RealtimeTableDataManager;
 import org.apache.pinot.core.query.pruner.SegmentPrunerService;
 import org.apache.pinot.core.query.request.ServerQueryRequest;
 import org.apache.pinot.core.query.request.context.QueryContext;
+import org.apache.pinot.core.query.request.context.TableSegmentsContext;
 import org.apache.pinot.core.query.request.context.TimerContext;
 import org.apache.pinot.segment.local.data.manager.SegmentDataManager;
 import org.apache.pinot.segment.spi.IndexSegment;
@@ -44,9 +44,9 @@ public class LogicalTableExecutionInfo implements TableExecutionInfo {
 
   public static LogicalTableExecutionInfo create(InstanceDataManager instanceDataManager,
       ServerQueryRequest queryRequest, QueryContext queryContext) {
-    List<TableSegmentsInfo> tableSegmentsInfoList = queryRequest.getTableSegmentsInfoList();
-    List<SingleTableExecutionInfo> tableExecutionInfos = new ArrayList<>(tableSegmentsInfoList.size());
-    for (TableSegmentsInfo tableSegmentsInfo : tableSegmentsInfoList) {
+    List<TableSegmentsContext> tableSegmentsContexts = queryRequest.getTableSegmentsContexts();
+    List<SingleTableExecutionInfo> tableExecutionInfos = new ArrayList<>(tableSegmentsContexts.size());
+    for (TableSegmentsContext tableSegmentsInfo : tableSegmentsContexts) {
       SingleTableExecutionInfo singleTableExecutionInfo =
           SingleTableExecutionInfo.create(instanceDataManager, tableSegmentsInfo.getTableName(),
               tableSegmentsInfo.getSegments(), tableSegmentsInfo.getOptionalSegments(), queryContext);

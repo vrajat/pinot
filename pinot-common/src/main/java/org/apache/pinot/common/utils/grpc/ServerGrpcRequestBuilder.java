@@ -44,6 +44,7 @@ public class ServerGrpcRequestBuilder {
   private String _sql;
   private BrokerRequest _brokerRequest;
   private List<String> _segments;
+  private List<Server.TableSegmentsInfo> _tableSegmentsInfoList;
 
   public ServerGrpcRequestBuilder setRequestId(long requestId) {
     _requestId = requestId;
@@ -87,8 +88,14 @@ public class ServerGrpcRequestBuilder {
     return this;
   }
 
+  public ServerGrpcRequestBuilder setTableSegmentsInfoList(List<Server.TableSegmentsInfo> tableSegmentsInfoList) {
+    _tableSegmentsInfoList = tableSegmentsInfoList;
+    return this;
+  }
+
   public Server.ServerRequest build() {
-    Preconditions.checkState(_payloadType != null && CollectionUtils.isNotEmpty(_segments),
+    Preconditions.checkState(
+        _payloadType != null && (CollectionUtils.isNotEmpty(_segments) || _tableSegmentsInfoList != null),
         "Query and segmentsToQuery must be set");
 
     Map<String, String> metadata = new HashMap<>();
@@ -100,8 +107,17 @@ public class ServerGrpcRequestBuilder {
     metadata.put(Request.MetadataKeys.ENABLE_STREAMING, Boolean.toString(_enableStreaming));
     metadata.put(Request.MetadataKeys.PAYLOAD_TYPE, _payloadType);
 
+    Server.ServerRequest.Builder serverRequestBuilder = Server.ServerRequest.newBuilder();
+    serverRequestBuilder.putAllMetadata(metadata);
+    if (_segments != null) {
+      serverRequestBuilder.addAllSegments(_segments);
+    }
+    if (_tableSegmentsInfoList != null) {
+      serverRequestBuilder.addAllTableSegmentsInfo(_tableSegmentsInfoList);
+    }
+
     if (_payloadType.equals(Request.PayloadType.SQL)) {
-      return Server.ServerRequest.newBuilder().putAllMetadata(metadata).setSql(_sql).addAllSegments(_segments).build();
+      return serverRequestBuilder.setSql(_sql).build();
     } else {
       byte[] payLoad;
       try {
@@ -109,8 +125,7 @@ public class ServerGrpcRequestBuilder {
       } catch (TException e) {
         throw new RuntimeException("Caught exception while serializing broker request: " + _brokerRequest, e);
       }
-      return Server.ServerRequest.newBuilder().putAllMetadata(metadata).setPayload(ByteString.copyFrom(payLoad))
-          .addAllSegments(_segments).build();
+      return serverRequestBuilder.setPayload(ByteString.copyFrom(payLoad)).build();
     }
   }
 }

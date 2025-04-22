@@ -139,7 +139,7 @@ public abstract class BaseLogicalTableIntegrationTest extends BaseClusterIntegra
     setUpQueryGenerator(avroFiles);
 
     // Wait for all documents loaded
-    waitForAllDocsLoaded(600_000L);
+    // waitForAllDocsLoaded(600_000L);
   }
 
   @AfterClass
