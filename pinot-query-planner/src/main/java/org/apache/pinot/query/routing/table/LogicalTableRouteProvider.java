@@ -66,27 +66,6 @@ public class LogicalTableRouteProvider implements TableRouteProvider {
     return new LogicalTableRouteProvider(logicalTable.getTableName(), offlineTables, realtimeTables);
   }
 
-  public static LogicalTableRouteProvider create(String logicalTableName, List<String> physicalTableNames,
-      RoutingManager routingManager) {
-    List<PhysicalTable> offlineTables = new ArrayList<>();
-    List<PhysicalTable> realtimeTables = new ArrayList<>();
-    for (String physicalTableName : physicalTableNames) {
-      TableType tableType = TableNameBuilder.getTableTypeFromTableName(physicalTableName);
-      Preconditions.checkNotNull(tableType);
-      if (routingManager.routingExists(physicalTableName)) {
-        if (tableType == TableType.OFFLINE) {
-          offlineTables.add(new PhysicalTable(physicalTableName, physicalTableName, tableType, null,
-              routingManager.isTableDisabled(physicalTableName)));
-        } else {
-          realtimeTables.add(new PhysicalTable(physicalTableName, physicalTableName, tableType, null,
-              routingManager.isTableDisabled(physicalTableName)));
-        }
-      }
-    }
-
-    return new LogicalTableRouteProvider(logicalTableName, offlineTables, realtimeTables);
-  }
-
   private LogicalTableRouteProvider(String logicalTableName, List<PhysicalTable> offlineTables,
       List<PhysicalTable> realtimeTables) {
     _logicalTableName = logicalTableName;
@@ -139,13 +118,13 @@ public class LogicalTableRouteProvider implements TableRouteProvider {
   @Nullable
   @Override
   public String getOfflineTableName() {
-    return !_offlineTables.isEmpty() ? _offlineTables.get(0).getTableName() : null;
+    return !_offlineTables.isEmpty() ? TableNameBuilder.OFFLINE.tableNameWithType(_logicalTableName) : null;
   }
 
   @Nullable
   @Override
   public String getRealtimeTableName() {
-    return !_realtimeTables.isEmpty() ? _realtimeTables.get(0).getTableName() : null;
+    return !_realtimeTables.isEmpty() ? TableNameBuilder.REALTIME.tableNameWithType(_logicalTableName) : null;
   }
 
   @Override
