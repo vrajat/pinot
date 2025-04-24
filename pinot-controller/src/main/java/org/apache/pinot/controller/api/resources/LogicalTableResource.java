@@ -87,7 +87,7 @@ public class LogicalTableResource {
   @Path("/logicalTables")
   @ApiOperation(value = "List all logical table names", notes = "Lists all logical table names")
   public List<String> listLogicalTableNames(@Context HttpHeaders headers) {
-    return _pinotHelixResourceManager.getLogicalTableNames();
+    return _pinotHelixResourceManager.getAllLogicalTableNames();
   }
 
   @GET
