@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
+import org.apache.pinot.spi.config.table.QueryConfig;
 import org.apache.pinot.spi.utils.JsonUtils;
 
 
@@ -36,6 +37,7 @@ public class LogicalTable implements Serializable {
   private String _brokerTenant;
   private List<String> _physicalTableNames;
   private TimeBoundaryConfig _timeBoundaryConfig;
+  private QueryConfig _queryConfig;
 
   public static LogicalTable fromFile(File logicalTableFile)
       throws IOException {
@@ -79,6 +81,14 @@ public class LogicalTable implements Serializable {
     _timeBoundaryConfig = timeBoundaryConfig;
   }
 
+  public QueryConfig getQueryConfig() {
+    return _queryConfig;
+  }
+
+  public void setQueryConfig(QueryConfig queryConfig) {
+    _queryConfig = queryConfig;
+  }
+
   public ObjectNode toJsonObject() {
     ObjectNode node = JsonUtils.newObjectNode().put("tableName", _tableName).put("brokerTenant", _brokerTenant);
     ArrayNode arrayNode = JsonUtils.newArrayNode();
@@ -88,6 +98,9 @@ public class LogicalTable implements Serializable {
     node.set("physicalTableNames", arrayNode);
     if (_timeBoundaryConfig != null) {
       node.set("timeBoundaryConfig", _timeBoundaryConfig.toJsonNode());
+    }
+    if (_queryConfig != null) {
+      node.set("queryConfig", _queryConfig.toJsonNode());
     }
     return node;
   }

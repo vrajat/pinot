@@ -836,6 +836,10 @@ public class ZKMetadataProvider {
     }
   }
 
+  public static boolean isLogicalTableExists(ZkHelixPropertyStore<ZNRecord> propertyStore, String tableName) {
+    return propertyStore.exists(constructPropertyStorePathForLogical(tableName), AccessOption.PERSISTENT);
+  }
+
   private static Map<String, Double> toApplicationQpsQuotas(Map<String, String> quotas) {
     if (quotas == null) {
       return new HashMap<>();
