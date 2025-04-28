@@ -70,6 +70,7 @@ import org.apache.pinot.spi.config.table.ColumnPartitionConfig;
 import org.apache.pinot.spi.config.table.QueryConfig;
 import org.apache.pinot.spi.config.table.SegmentPartitionConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
+import org.apache.pinot.spi.data.LogicalTable;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.CommonConstants.Helix;
@@ -752,7 +753,13 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
   @Nullable
   public Long getQueryTimeoutMs(String tableNameWithType) {
     RoutingEntry routingEntry = _routingEntryMap.get(tableNameWithType);
-    return routingEntry != null ? routingEntry.getQueryTimeoutMs() : null;
+    if (routingEntry == null) {
+      String rawTableName = TableNameBuilder.extractRawTableName(tableNameWithType);
+      LogicalTable logicalTable = ZKMetadataProvider.getLogicalTable(_propertyStore, rawTableName);
+      return logicalTable != null && logicalTable.getQueryConfig() != null
+          ? logicalTable.getQueryConfig().getTimeoutMs() : null;
+    }
+    return routingEntry.getQueryTimeoutMs();
   }
 
   private static class RoutingEntry {
