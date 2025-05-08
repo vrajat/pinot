@@ -132,6 +132,7 @@ public class DispatchablePlanVisitor implements PlanNodeVisitor<Void, Dispatchab
   public Void visitTableScan(TableScanNode node, DispatchablePlanContext context) {
     DispatchablePlanMetadata dispatchablePlanMetadata = getOrCreateDispatchablePlanMetadata(node, context);
     dispatchablePlanMetadata.addScannedTable(node.getTableName());
+    dispatchablePlanMetadata.setLogicalTableRouteInfo(node.getLogicalTableRouteInfo());
     dispatchablePlanMetadata.setTableOptions(
         node.getNodeHint().getHintOptions().get(PinotHintOptions.TABLE_HINT_OPTIONS));
     return null;

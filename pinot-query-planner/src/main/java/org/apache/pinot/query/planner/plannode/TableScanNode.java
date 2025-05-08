@@ -20,18 +20,27 @@ package org.apache.pinot.query.planner.plannode;
 
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import org.apache.pinot.common.utils.DataSchema;
+import org.apache.pinot.query.routing.table.LogicalTableRouteInfo;
 
 
 public class TableScanNode extends BasePlanNode {
   private final String _tableName;
   private final List<String> _columns;
+  private final LogicalTableRouteInfo _logicalTableRouteInfo;
 
   public TableScanNode(int stageId, DataSchema dataSchema, NodeHint nodeHint, List<PlanNode> inputs, String tableName,
       List<String> columns) {
+    this(stageId, dataSchema, nodeHint, inputs, tableName, columns, null);
+  }
+
+  public TableScanNode(int stageId, DataSchema dataSchema, NodeHint nodeHint, List<PlanNode> inputs, String tableName,
+      List<String> columns, LogicalTableRouteInfo logicalTableRouteInfo) {
     super(stageId, dataSchema, nodeHint, inputs);
     _tableName = tableName;
     _columns = columns;
+    _logicalTableRouteInfo = logicalTableRouteInfo;
   }
 
   public String getTableName() {
@@ -40,6 +49,11 @@ public class TableScanNode extends BasePlanNode {
 
   public List<String> getColumns() {
     return _columns;
+  }
+
+  @Nullable
+  public LogicalTableRouteInfo getLogicalTableRouteInfo() {
+    return _logicalTableRouteInfo;
   }
 
   @Override

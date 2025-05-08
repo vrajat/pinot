@@ -78,6 +78,8 @@ import org.apache.pinot.query.planner.plannode.SortNode;
 import org.apache.pinot.query.planner.plannode.TableScanNode;
 import org.apache.pinot.query.planner.plannode.ValueNode;
 import org.apache.pinot.query.planner.plannode.WindowNode;
+import org.apache.pinot.query.routing.table.LogicalTableRouteInfo;
+import org.apache.pinot.query.routing.table.LogicalTableRouteProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -297,14 +299,24 @@ public final class RelToPlanNodeConverter {
   }
 
   private TableScanNode convertPinotLogicalTableScan(PinotLogicalTableScan node) {
-    String tableName = _tableCache.getActualTableName(getTableNameFromTableScan(node));
+    LogicalTableRouteInfo logicalTableRouteInfo = null;
+
+    String tableNameInNode = getTableNameFromTableScan(node);
+    String tableName = _tableCache.getActualTableName(tableNameInNode);
+    if (tableName == null) {
+      tableName = _tableCache.getActualLogicalTableName(tableNameInNode);
+      Preconditions.checkNotNull(tableName, "Logical table config not found in table cache: " + tableName);
+      LogicalTableRouteProvider tableRouteProvider = new LogicalTableRouteProvider();
+      logicalTableRouteInfo = tableRouteProvider.getTableRouteInfo(tableName, _tableCache);
+    }
+
     List<RelDataTypeField> fields = node.getRowType().getFieldList();
     List<String> columns = new ArrayList<>(fields.size());
     for (RelDataTypeField field : fields) {
       columns.add(field.getName());
     }
     return new TableScanNode(DEFAULT_STAGE_ID, toDataSchema(node.getRowType()), NodeHint.fromRelHints(node.getHints()),
-        convertInputs(node.getInputs()), tableName, columns);
+        convertInputs(node.getInputs()), tableName, columns, logicalTableRouteInfo);
   }
 
   private JoinNode convertLogicalJoin(LogicalJoin join) {

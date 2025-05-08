@@ -32,9 +32,9 @@ import org.apache.pinot.common.request.TableSegmentsInfo;
 import org.apache.pinot.core.routing.ServerRouteInfo;
 import org.apache.pinot.core.routing.TimeBoundaryInfo;
 import org.apache.pinot.core.transport.BaseTableRouteInfo;
-import org.apache.pinot.core.transport.ImplicitHybridTableRouteInfo;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.core.transport.ServerRoutingInstance;
+import org.apache.pinot.core.transport.TableRouteInfo;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.data.LogicalTableConfig;
@@ -45,8 +45,10 @@ import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 
 public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   private final LogicalTableConfig _logicalTable;
-  private List<ImplicitHybridTableRouteInfo> _offlineTables;
-  private List<ImplicitHybridTableRouteInfo> _realtimeTables;
+  private final String _logicalTableName;
+
+  private List<TableRouteInfo> _offlineTables;
+  private List<TableRouteInfo> _realtimeTables;
   private List<String> _unavailableSegments;
   private int _numPrunedSegments = 0;
 
@@ -54,12 +56,14 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   private BrokerRequest _realtimeBrokerRequest;
   private TimeBoundaryInfo _timeBoundaryInfo;
 
-  LogicalTableRouteInfo() {
+  public LogicalTableRouteInfo() {
     _logicalTable = null;
+    _logicalTableName = null;
   }
 
   public LogicalTableRouteInfo(LogicalTableConfig logicalTable) {
     _logicalTable = logicalTable;
+    _logicalTableName = logicalTable.getTableName();
   }
 
   @Override
@@ -68,7 +72,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
     Map<ServerInstance, List<TableSegmentsInfo>> realtimeTableRouteInfo = new HashMap<>();
 
     if (_offlineTables != null) {
-      for (ImplicitHybridTableRouteInfo physicalTableRoute : _offlineTables) {
+      for (TableRouteInfo physicalTableRoute : _offlineTables) {
         if (physicalTableRoute.getOfflineRoutingTable() != null) {
           for (Map.Entry<ServerInstance, ServerRouteInfo> entry : physicalTableRoute.getOfflineRoutingTable()
               .entrySet()) {
@@ -86,7 +90,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
     }
 
     if (_realtimeTables != null) {
-      for (ImplicitHybridTableRouteInfo physicalTableRoute : _realtimeTables) {
+      for (TableRouteInfo physicalTableRoute : _realtimeTables) {
         if (physicalTableRoute.getRealtimeRoutingTable() != null) {
           for (Map.Entry<ServerInstance, ServerRouteInfo> entry : physicalTableRoute.getRealtimeRoutingTable()
               .entrySet()) {
@@ -135,6 +139,11 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
     return instanceRequest;
   }
 
+  @Nullable
+  public String getLogicalTableName() {
+    return _logicalTableName;
+  }
+
   // TODO: https://github.com/apache/pinot/issues/15710
   @Nullable
   @Override
@@ -154,7 +163,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   public Set<ServerInstance> getOfflineExecutionServers() {
     if (hasOffline()) {
       Set<ServerInstance> offlineExecutionServers = new HashSet<>();
-      for (ImplicitHybridTableRouteInfo offlineTable : _offlineTables) {
+      for (TableRouteInfo offlineTable : _offlineTables) {
         if (offlineTable.isOfflineRouteExists()) {
           Map<ServerInstance, ServerRouteInfo> offlineRoutingTable = offlineTable.getOfflineRoutingTable();
           if (offlineRoutingTable != null) {
@@ -171,7 +180,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   public Set<ServerInstance> getRealtimeExecutionServers() {
     if (hasRealtime()) {
       Set<ServerInstance> realtimeExecutionServers = new HashSet<>();
-      for (ImplicitHybridTableRouteInfo realtimeTable : _realtimeTables) {
+      for (TableRouteInfo realtimeTable : _realtimeTables) {
         if (realtimeTable.isRealtimeRouteExists()) {
           Map<ServerInstance, ServerRouteInfo> realtimeRoutingTable = realtimeTable.getRealtimeRoutingTable();
           if (realtimeRoutingTable != null) {
@@ -209,15 +218,15 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   @Nullable
   @Override
   public String getOfflineTableName() {
-    return hasOffline() && _logicalTable != null ? TableNameBuilder.OFFLINE.tableNameWithType(
-        _logicalTable.getTableName()) : null;
+    return hasOffline() && _logicalTableName != null ? TableNameBuilder.OFFLINE.tableNameWithType(_logicalTableName)
+        : null;
   }
 
   @Nullable
   @Override
   public String getRealtimeTableName() {
-    return hasRealtime() && _logicalTable != null ? TableNameBuilder.REALTIME.tableNameWithType(
-        _logicalTable.getTableName()) : null;
+    return hasRealtime() && _logicalTableName != null ? TableNameBuilder.REALTIME.tableNameWithType(_logicalTableName)
+        : null;
   }
 
   @Nullable
@@ -234,7 +243,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
 
   public boolean isOfflineRouteExists() {
     if (_offlineTables != null) {
-      for (ImplicitHybridTableRouteInfo offlineTable : _offlineTables) {
+      for (TableRouteInfo offlineTable : _offlineTables) {
         if (offlineTable.isRouteExists()) {
           return true;
         }
@@ -245,7 +254,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
 
   public boolean isRealtimeRouteExists() {
     if (_realtimeTables != null) {
-      for (ImplicitHybridTableRouteInfo realtimeTable : _realtimeTables) {
+      for (TableRouteInfo realtimeTable : _realtimeTables) {
         if (realtimeTable.isRouteExists()) {
           return true;
         }
@@ -257,7 +266,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   @Override
   public boolean isOfflineTableDisabled() {
     if (_offlineTables != null) {
-      for (ImplicitHybridTableRouteInfo offlineTable : _offlineTables) {
+      for (TableRouteInfo offlineTable : _offlineTables) {
         if (!offlineTable.isDisabled()) {
           return false;
         }
@@ -270,7 +279,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   @Override
   public boolean isRealtimeTableDisabled() {
     if (_realtimeTables != null) {
-      for (ImplicitHybridTableRouteInfo realtimeTable : _realtimeTables) {
+      for (TableRouteInfo realtimeTable : _realtimeTables) {
         if (!realtimeTable.isDisabled()) {
           return false;
         }
@@ -285,7 +294,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   public List<String> getDisabledTableNames() {
     List<String> disabledTableNames = null;
     if (_offlineTables != null) {
-      for (ImplicitHybridTableRouteInfo offlineTable : _offlineTables) {
+      for (TableRouteInfo offlineTable : _offlineTables) {
         if (offlineTable.isDisabled()) {
           if (disabledTableNames == null) {
             disabledTableNames = new ArrayList<>();
@@ -296,7 +305,7 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
     }
 
     if (_realtimeTables != null) {
-      for (ImplicitHybridTableRouteInfo realtimeTable : _realtimeTables) {
+      for (TableRouteInfo realtimeTable : _realtimeTables) {
         if (realtimeTable.isDisabled()) {
           if (disabledTableNames == null) {
             disabledTableNames = new ArrayList<>();
@@ -331,20 +340,20 @@ public class LogicalTableRouteInfo extends BaseTableRouteInfo {
   }
 
   @Nullable
-  public List<ImplicitHybridTableRouteInfo> getOfflineTables() {
+  public List<TableRouteInfo> getOfflineTables() {
     return _offlineTables;
   }
 
-  public void setOfflineTables(List<ImplicitHybridTableRouteInfo> offlineTables) {
+  public void setOfflineTables(List<TableRouteInfo> offlineTables) {
     _offlineTables = offlineTables;
   }
 
   @Nullable
-  public List<ImplicitHybridTableRouteInfo> getRealtimeTables() {
+  public List<TableRouteInfo> getRealtimeTables() {
     return _realtimeTables;
   }
 
-  public void setRealtimeTables(List<ImplicitHybridTableRouteInfo> realtimeTables) {
+  public void setRealtimeTables(List<TableRouteInfo> realtimeTables) {
     _realtimeTables = realtimeTables;
   }
 

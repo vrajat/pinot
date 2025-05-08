@@ -33,6 +33,7 @@ import org.apache.pinot.segment.local.data.manager.TableDataManager;
 import org.apache.pinot.segment.local.utils.SegmentOperationsThrottler;
 import org.apache.pinot.segment.spi.SegmentMetadata;
 import org.apache.pinot.spi.annotations.InterfaceAudience;
+import org.apache.pinot.spi.data.LogicalTableConfig;
 import org.apache.pinot.spi.env.PinotConfiguration;
 
 
@@ -201,4 +202,6 @@ public interface InstanceDataManager {
    * Returns the instance data directory
    */
   String getInstanceDataDir();
+
+  LogicalTableConfig getLogicalTableConfig(String logicalTableName);
 }

@@ -69,6 +69,10 @@ public class PinotCatalog implements Schema {
     String physicalTableName = DatabaseUtils.translateTableName(rawTableName, _databaseName);
     String tableName = _tableCache.getActualTableName(physicalTableName);
 
+    if (tableName == null) {
+      tableName = _tableCache.getActualLogicalTableName(physicalTableName);
+    }
+
     Preconditions.checkArgument(tableName != null, String.format("Table does not exist: '%s'", physicalTableName));
     org.apache.pinot.spi.data.Schema schema = _tableCache.getSchema(tableName);
     Preconditions.checkArgument(schema != null, String.format("Could not find schema for table: '%s'", tableName));
@@ -89,6 +93,15 @@ public class PinotCatalog implements Schema {
         result.add(DatabaseUtils.removeDatabasePrefix(tableName, _databaseName));
       }
     }
+
+    for (String logicalTableName: _tableCache.getLogicalTableNameMap().keySet()) {
+      if (DatabaseUtils.isPartOfDatabase(logicalTableName, _databaseName)) {
+        result.add(logicalTableName);
+        // if table has no prefix the next add(n) will have no effect
+        result.add(DatabaseUtils.removeDatabasePrefix(logicalTableName, _databaseName));
+      }
+    }
+
     return result;
   }
 
