@@ -223,21 +223,26 @@ public class PerQueryCPUMemAccountantFactory implements ThreadAccountantFactory 
       for (CPUMemThreadLevelAccountingObjects.ThreadEntry threadEntry : _threadEntriesMap.values()) {
         CPUMemThreadLevelAccountingObjects.TaskEntry currentTaskStatus = threadEntry.getCurrentThreadTaskStatus();
 
+        LOGGER.info("threadEntry: {}", threadEntry);
         // if current thread is not idle
         if (currentTaskStatus != null) {
           // extract query id from queryTask string
           String queryId = currentTaskStatus.getQueryId();
+          LOGGER.info("queryId: {}, currentTaskStatus: {}", queryId, currentTaskStatus);
           if (queryId != null) {
             Thread anchorThread = currentTaskStatus.getAnchorThread();
             boolean isAnchorThread = currentTaskStatus.isAnchorThread();
             long currentCPUSample = _isThreadCPUSamplingEnabled ? threadEntry._currentThreadCPUTimeSampleMS : 0;
             long currentMemSample =
                 _isThreadMemorySamplingEnabled ? threadEntry._currentThreadMemoryAllocationSampleBytes : 0;
+            LOGGER.info("currentCPUSample: {}, currentMemSample: {}, isAnchorThread: {}, anchorThread: {}",
+                currentCPUSample, currentMemSample, isAnchorThread, anchorThread);
             ret.compute(queryId,
                 (k, v) -> v == null ? new AggregatedStats(currentCPUSample, currentMemSample, anchorThread,
                     isAnchorThread, threadEntry._errorStatus, queryId)
                     : v.merge(currentCPUSample, currentMemSample, isAnchorThread,
                         threadEntry._errorStatus));
+            LOGGER.info("AggregatedStats for queryId {}: {}", queryId, ret.get(queryId));
           }
         }
       }
@@ -253,8 +258,11 @@ public class PerQueryCPUMemAccountantFactory implements ThreadAccountantFactory 
             _isThreadMemorySamplingEnabled ? _finishedTaskMemStatsAggregator.getOrDefault(activeQueryId, 0L) : 0;
         long concurrentMemValue =
             _isThreadMemorySamplingEnabled ? _concurrentTaskMemStatsAggregator.getOrDefault(activeQueryId, 0L) : 0;
+        LOGGER.info("Accumulated stats for queryId {}: CPU: {}, Mem: {}, Concurrent CPU: {}, Concurrent Mem: {}",
+            activeQueryId, accumulatedCPUValue, accumulatedMemValue, concurrentCPUValue, concurrentMemValue);
         queryIdResult.getValue()
             .merge(accumulatedCPUValue + concurrentCPUValue, accumulatedMemValue + concurrentMemValue, false, null);
+        LOGGER.info("Final AggregatedStats for queryId {}: {}", activeQueryId, queryIdResult.getValue());
       }
       return ret;
     }
