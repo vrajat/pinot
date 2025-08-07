@@ -219,6 +219,7 @@ public class PerQueryCPUMemAccountantFactory implements ThreadAccountantFactory 
     protected Map<String, AggregatedStats> getQueryResourcesImpl() {
       HashMap<String, AggregatedStats> ret = new HashMap<>();
 
+      LOGGER.info("Number of threads in _threadEntriesMap: {}", _threadEntriesMap.size());
       // for each {pqr, pqw}
       for (CPUMemThreadLevelAccountingObjects.ThreadEntry threadEntry : _threadEntriesMap.values()) {
         CPUMemThreadLevelAccountingObjects.TaskEntry currentTaskStatus = threadEntry.getCurrentThreadTaskStatus();
@@ -765,8 +766,11 @@ public class PerQueryCPUMemAccountantFactory implements ThreadAccountantFactory 
           evalTriggers();
           // Refresh thread usage and aggregate to per query usage if triggered
           reapFinishedTasks();
+          LOGGER.info("Heap used bytes: {}, triggeringLevel: {}", _usedBytes, _triggeringLevel);
           if (_triggeringLevel.ordinal() > TriggeringLevel.Normal.ordinal()) {
             _aggregatedUsagePerActiveQuery = getQueryResourcesImpl();
+            // Log the aggregated usage for debugging
+            LOGGER.info("Aggregated usage per active query: {}", _aggregatedUsagePerActiveQuery);
           }
           // post aggregation function
           postAggregation(_aggregatedUsagePerActiveQuery);
