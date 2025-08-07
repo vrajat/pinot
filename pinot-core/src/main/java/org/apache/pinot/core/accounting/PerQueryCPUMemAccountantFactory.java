@@ -219,31 +219,31 @@ public class PerQueryCPUMemAccountantFactory implements ThreadAccountantFactory 
     protected Map<String, AggregatedStats> getQueryResourcesImpl() {
       HashMap<String, AggregatedStats> ret = new HashMap<>();
 
-      LOGGER.info("Number of threads in _threadEntriesMap: {}", _threadEntriesMap.size());
+      LOGGER.error("Number of threads in _threadEntriesMap: {}", _threadEntriesMap.size());
       // for each {pqr, pqw}
       for (CPUMemThreadLevelAccountingObjects.ThreadEntry threadEntry : _threadEntriesMap.values()) {
         CPUMemThreadLevelAccountingObjects.TaskEntry currentTaskStatus = threadEntry.getCurrentThreadTaskStatus();
 
-        LOGGER.info("threadEntry: {}", threadEntry);
+        LOGGER.error("threadEntry: {}", threadEntry);
         // if current thread is not idle
         if (currentTaskStatus != null) {
           // extract query id from queryTask string
           String queryId = currentTaskStatus.getQueryId();
-          LOGGER.info("queryId: {}, currentTaskStatus: {}", queryId, currentTaskStatus);
+          LOGGER.error("queryId: {}, currentTaskStatus: {}", queryId, currentTaskStatus);
           if (queryId != null) {
             Thread anchorThread = currentTaskStatus.getAnchorThread();
             boolean isAnchorThread = currentTaskStatus.isAnchorThread();
             long currentCPUSample = _isThreadCPUSamplingEnabled ? threadEntry._currentThreadCPUTimeSampleMS : 0;
             long currentMemSample =
                 _isThreadMemorySamplingEnabled ? threadEntry._currentThreadMemoryAllocationSampleBytes : 0;
-            LOGGER.info("currentCPUSample: {}, currentMemSample: {}, isAnchorThread: {}, anchorThread: {}",
+            LOGGER.error("currentCPUSample: {}, currentMemSample: {}, isAnchorThread: {}, anchorThread: {}",
                 currentCPUSample, currentMemSample, isAnchorThread, anchorThread);
             ret.compute(queryId,
                 (k, v) -> v == null ? new AggregatedStats(currentCPUSample, currentMemSample, anchorThread,
                     isAnchorThread, threadEntry._errorStatus, queryId)
                     : v.merge(currentCPUSample, currentMemSample, isAnchorThread,
                         threadEntry._errorStatus));
-            LOGGER.info("AggregatedStats for queryId {}: {}", queryId, ret.get(queryId));
+            LOGGER.error("AggregatedStats for queryId {}: {}", queryId, ret.get(queryId));
           }
         }
       }
@@ -259,11 +259,11 @@ public class PerQueryCPUMemAccountantFactory implements ThreadAccountantFactory 
             _isThreadMemorySamplingEnabled ? _finishedTaskMemStatsAggregator.getOrDefault(activeQueryId, 0L) : 0;
         long concurrentMemValue =
             _isThreadMemorySamplingEnabled ? _concurrentTaskMemStatsAggregator.getOrDefault(activeQueryId, 0L) : 0;
-        LOGGER.info("Accumulated stats for queryId {}: CPU: {}, Mem: {}, Concurrent CPU: {}, Concurrent Mem: {}",
+        LOGGER.error("Accumulated stats for queryId {}: CPU: {}, Mem: {}, Concurrent CPU: {}, Concurrent Mem: {}",
             activeQueryId, accumulatedCPUValue, accumulatedMemValue, concurrentCPUValue, concurrentMemValue);
         queryIdResult.getValue()
             .merge(accumulatedCPUValue + concurrentCPUValue, accumulatedMemValue + concurrentMemValue, false, null);
-        LOGGER.info("Final AggregatedStats for queryId {}: {}", activeQueryId, queryIdResult.getValue());
+        LOGGER.error("Final AggregatedStats for queryId {}: {}", activeQueryId, queryIdResult.getValue());
       }
       return ret;
     }
@@ -766,11 +766,11 @@ public class PerQueryCPUMemAccountantFactory implements ThreadAccountantFactory 
           evalTriggers();
           // Refresh thread usage and aggregate to per query usage if triggered
           reapFinishedTasks();
-          LOGGER.info("Heap used bytes: {}, triggeringLevel: {}", _usedBytes, _triggeringLevel);
+          LOGGER.error("Heap used bytes: {}, triggeringLevel: {}", _usedBytes, _triggeringLevel);
           if (_triggeringLevel.ordinal() > TriggeringLevel.Normal.ordinal()) {
             _aggregatedUsagePerActiveQuery = getQueryResourcesImpl();
             // Log the aggregated usage for debugging
-            LOGGER.info("Aggregated usage per active query: {}", _aggregatedUsagePerActiveQuery);
+            LOGGER.error("Aggregated usage per active query: {}", _aggregatedUsagePerActiveQuery);
           }
           // post aggregation function
           postAggregation(_aggregatedUsagePerActiveQuery);
